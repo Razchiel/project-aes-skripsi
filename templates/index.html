@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description"
+        content="Dashboard keamanan sistem monitoring mikroklimat IoT menggunakan AES-256 dan HMAC-SHA256 — Depo Arsip Dinas Perpustakaan dan Kearsipan Provinsi Kalimantan Barat">
+    <title>Dashboard Keamanan — Monitoring Mikroklimat IoT</title>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+    <!-- ===== HEADER ===== -->
+    <header>
+        <div class="header-content">
+            <div class="header-left">
+                <div class="logo-icon">🔒</div>
+                <div class="logo-text">
+                    <h1>Dashboard Keamanan IoT</h1>
+                    <p class="subtitle">Sistem Monitoring Mikroklimat — Depo Arsip Dinas Perpustakaan dan Kearsipan
+                        Prov. Kalbar</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <div class="live-badge">
+                    <span class="pulse-dot"></span>
+                    <span>LIVE</span>
+                </div>
+                <div class="clock" id="clock">Memuat...</div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main>
+
+        <!-- Security Status Banner -->
+        <section class="security-banner safe" id="security-banner" aria-label="Status keamanan sistem">
+            <div class="banner-icon" id="banner-icon">🛡️</div>
+            <div class="banner-text">
+                <h2 id="status-text">✓ SISTEM AMAN</h2>
+                <p id="status-desc">Semua data sensor terverifikasi — tidak ada ancaman terdeteksi</p>
+            </div>
+        </section>
+
+        <!-- Stats Overview (4 Cards) -->
+        <section class="stats-grid" aria-label="Ringkasan statistik">
+
+            <div class="stat-card temp" id="card-suhu">
+                <div class="stat-icon-wrapper">🌡️</div>
+                <div class="stat-content">
+                    <span class="stat-label">Suhu Terakhir</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="suhu-terakhir">--</span>
+                        <span class="stat-unit">°C</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card humidity" id="card-kelembapan">
+                <div class="stat-icon-wrapper">💧</div>
+                <div class="stat-content">
+                    <span class="stat-label">Kelembapan Terakhir</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="kelembapan-terakhir">--</span>
+                        <span class="stat-unit">%RH</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card verified" id="card-verified">
+                <div class="stat-icon-wrapper">✅</div>
+                <div class="stat-content">
+                    <span class="stat-label">Paket Terverifikasi</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="total-verified">0</span>
+                        <span class="stat-unit">paket</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card attacks" id="card-attacks">
+                <div class="stat-icon-wrapper">🚨</div>
+                <div class="stat-content">
+                    <span class="stat-label">Serangan Terdeteksi</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="total-attacks">0</span>
+                        <span class="stat-unit">insiden</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Main Content: Data Table + Metrics -->
+        <section class="content-grid">
+
+            <!-- Sensor Data Table -->
+            <div class="panel" id="data-panel">
+                <div class="panel-header">
+                    <h3>📊 Data Sensor Terbaru</h3>
+                    <span class="refresh-badge">Auto-refresh 10s</span>
+                </div>
+                <div class="table-wrapper">
+                    <table id="sensor-table">
+                        <thead>
+                            <tr>
+                                <th>Waktu</th>
+                                <th>Suhu (°C)</th>
+                                <th>Kelembapan (%)</th>
+                                <th>Dekripsi (ms)</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sensor-tbody">
+                            <tr class="empty-row">
+                                <td colspan="5">Memuat data sensor...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="pagination" id="pagination-sensor"></div>
+            </div>
+
+            <!-- Crypto Metrics + Simulation -->
+            <div class="panel" id="metrics-panel">
+                <div class="panel-header">
+                    <h3>🔐 Metrik Kriptografi</h3>
+                </div>
+
+                <div class="metrics-list">
+                    <div class="metric-item">
+                        <span class="metric-label">Rata-rata Dekripsi</span>
+                        <span class="metric-value" id="avg-decrypt">-- ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Minimum</span>
+                        <span class="metric-value" id="min-decrypt">-- ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Maksimum</span>
+                        <span class="metric-value" id="max-decrypt">-- ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Total Diproses</span>
+                        <span class="metric-value" id="total-processed">0</span>
+                    </div>
+                </div>
+
+                <div class="sim-divider"></div>
+
+                <div class="simulation-section">
+                    <h4>🧪 Simulasi Pengujian</h4>
+                    <p>Kirim data simulasi tanpa ESP32 untuk demo</p>
+
+                    <div class="button-group">
+                        <button id="btn-simulate" class="btn btn-primary" type="button">
+                            🔐 Kirim Data Normal
+                        </button>
+                        <button id="btn-attack" class="btn btn-danger" type="button">
+                            💥 Simulasi Serangan
+                        </button>
+                        <button id="btn-replay" class="btn btn-warning" type="button">
+                            🔁 Simulasi Replay Attack
+                        </button>
+                    </div>
+                    <div class="reset-section">
+                        <button id="btn-reset" class="btn btn-reset" type="button">🗑️ Reset Database</button>
+                    </div>
+
+                    <div class="sim-result" id="sim-result"></div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Attack Log -->
+        <section class="panel attack-panel" id="attack-panel">
+            <div class="panel-header">
+                <h3>🚨 Log Deteksi Serangan</h3>
+                <span class="attack-badge" id="attack-count-badge">0 insiden</span>
+            </div>
+            <div class="table-wrapper">
+                <table id="attack-table">
+                    <thead>
+                        <tr>
+                            <th>Waktu</th>
+                            <th>Jenis Serangan</th>
+                            <th>Detail</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="attack-tbody">
+                        <tr class="empty-row">
+                            <td colspan="4">Memuat log serangan...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination" id="pagination-attack"></div>
+        </section>
+
+        <section class="chart-section" aria-label="Grafik data sensor">
+            <div class="panel chart-panel" id="chart-panel">
+                <div class="panel-header">
+                    <h3>📊 Grafik Suhu & Kelembapan</h3>
+                    <div class="chart-header-right">
+                        <div class="chart-legend-inline">
+                            <span class="legend-dot legend-blue"></span> Suhu (°C)
+                            <span class="legend-dot legend-green"></span> Kelembapan (%RH)
+                            <span class="legend-separator">|</span>
+                            <span class="legend-dot legend-red"></span> Serangan Terdeteksi
+                        </div>
+                        <button id="btn-export-csv" class="btn btn-export" type="button">
+                            📥 Export CSV
+                        </button>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-sensor"></canvas>
+                </div>
+                <div class="chart-anomaly-note">
+                    Titik <span class="text-red">merah</span> = data gagal verifikasi integritas (serangan terdeteksi)
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== FOOTER ===== -->
+    <footer>
+        <p>Implementasi AES-256 dan HMAC-SHA256 untuk Pengamanan Data Sensor pada Sistem Monitoring Lingkungan Berbasis
+            IoT</p>
+        <p>Dinas Perpustakaan dan Kearsipan Provinsi Kalimantan Barat — Jalan Sutan Syahrir No.17 Pontianak</p>
+    </footer>
+
+    <!-- ===== DETAIL MODAL POPUP ===== -->
+    <div class="modal-overlay" id="modal-overlay">
+        <div class="modal" id="modal">
+            <div class="modal-header" id="modal-header">
+                <div class="modal-title-group">
+                    <span class="modal-icon" id="modal-icon"></span>
+                    <h3 id="modal-title"></h3>
+                </div>
+                <button class="modal-close" id="modal-close" type="button" aria-label="Tutup">&times;</button>
+            </div>
+            <div class="modal-body" id="modal-body">
+                <!-- Populated by JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/main.js"></script>
+
+</body>
+
+</html>

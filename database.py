@@ -1,0 +1,199 @@
+import sqlite3
+from datetime import datetime
+
+DB_NAME = "mikroklimat.db"
+
+def init_db():
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS sensor_data (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            suhu REAL, kelembapan REAL, waktu_dekripsi_ms REAL, status TEXT,
+            iv_hex TEXT, ciphertext_hex TEXT, hmac_tag_hex TEXT,
+            payload_base64 TEXT, plaintext_json TEXT
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS attack_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            jenis_serangan TEXT, detail TEXT, status TEXT,
+            iv_hex TEXT, ciphertext_hex TEXT,
+            hmac_tag_hex TEXT,
+            hmac_dihitung_hex TEXT,
+            payload_base64 TEXT, plaintext_json TEXT, delta_ms INTEGER
+        )
+    ''')
+
+    _migrasi_kolom(cursor)
+    conn.commit()
+    conn.close()
+
+def _migrasi_kolom(cursor):
+    migrations = [
+        "ALTER TABLE sensor_data ADD COLUMN iv_hex TEXT",
+        "ALTER TABLE sensor_data ADD COLUMN ciphertext_hex TEXT",
+        "ALTER TABLE sensor_data ADD COLUMN hmac_tag_hex TEXT",
+        "ALTER TABLE sensor_data ADD COLUMN payload_base64 TEXT",
+        "ALTER TABLE sensor_data ADD COLUMN plaintext_json TEXT",
+        "ALTER TABLE attack_log ADD COLUMN iv_hex TEXT",
+        "ALTER TABLE attack_log ADD COLUMN ciphertext_hex TEXT",
+        "ALTER TABLE attack_log ADD COLUMN hmac_tag_hex TEXT",
+        "ALTER TABLE attack_log ADD COLUMN hmac_dihitung_hex TEXT",
+        "ALTER TABLE attack_log ADD COLUMN payload_base64 TEXT",
+        "ALTER TABLE attack_log ADD COLUMN plaintext_json TEXT",
+        "ALTER TABLE attack_log ADD COLUMN delta_ms INTEGER",
+    ]
+    for sql in migrations:
+        try:
+            cursor.execute(sql)
+        except Exception:
+            pass
+
+def simpan_data_sensor(suhu, kelembapan, waktu_dekripsi_ms, status, crypto_info=None):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ci = crypto_info or {}
+    cursor.execute('''
+        INSERT INTO sensor_data
+            (timestamp, suhu, kelembapan, waktu_dekripsi_ms, status,
+             iv_hex, ciphertext_hex, hmac_tag_hex, payload_base64, plaintext_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (waktu_sekarang, suhu, kelembapan, waktu_dekripsi_ms, status,
+          ci.get('iv_hex'), ci.get('ciphertext_hex'), ci.get('hmac_tag_hex'),
+          ci.get('payload_base64'), ci.get('plaintext_json')))
+    conn.commit()
+    conn.close()
+
+def catat_log_serangan(jenis_serangan, detail, status, crypto_info=None):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    ci = crypto_info or {}
+    cursor.execute('''
+        INSERT INTO attack_log
+            (timestamp, jenis_serangan, detail, status,
+             iv_hex, ciphertext_hex, hmac_tag_hex, hmac_dihitung_hex,
+             payload_base64, plaintext_json, delta_ms)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        waktu_sekarang, jenis_serangan, detail, status,
+        ci.get('iv_hex'), ci.get('ciphertext_hex'),
+        ci.get('hmac_tag_hex'), ci.get('hmac_dihitung_hex'),
+        ci.get('payload_base64'), ci.get('plaintext_json'),
+        ci.get('delta_ms')
+    ))
+    conn.commit()
+    conn.close()
+
+def ambil_data_terbaru(limit=200):
+    """Mengambil data sensor terbaru untuk ditampilkan di web dashboard."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row # Agar output berupa dictionary, bukan tuple
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM sensor_data ORDER BY id DESC LIMIT ?', (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+def ambil_log_serangan(limit=200):
+    """Mengambil log serangan terbaru untuk tabel security dashboard."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM attack_log ORDER BY id DESC LIMIT ?', (limit,))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+
+def ambil_statistik():
+    """Menghitung statistik performa kriptografi untuk dashboard."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    
+    # Metrik waktu dekripsi dari data sensor yang berhasil
+    cursor.execute('''
+        SELECT COUNT(*), AVG(waktu_dekripsi_ms), MIN(waktu_dekripsi_ms), MAX(waktu_dekripsi_ms) 
+        FROM sensor_data
+    ''')
+    row = cursor.fetchone()
+    total_paket = row[0] or 0
+    avg_dekripsi = round(row[1], 2) if row[1] else 0
+    min_dekripsi = round(row[2], 2) if row[2] else 0
+    max_dekripsi = round(row[3], 2) if row[3] else 0
+    
+    # Total serangan yang tercatat
+    cursor.execute('SELECT COUNT(*) FROM attack_log')
+    total_serangan = cursor.fetchone()[0] or 0
+    
+    conn.close()
+    
+    return {
+        "total_paket": total_paket,
+        "total_serangan": total_serangan,
+        "rata_rata_dekripsi": avg_dekripsi,
+        "min_dekripsi": min_dekripsi,
+        "max_dekripsi": max_dekripsi
+    }
+
+def ambil_data_chart_gabungan(limit=50):
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT timestamp, suhu, kelembapan, status, 'sensor' as sumber
+        FROM sensor_data
+        UNION ALL
+        SELECT timestamp, NULL as suhu, NULL as kelembapan, 'Attack' as status, 'attack' as sumber
+        FROM attack_log
+        ORDER BY timestamp DESC
+        LIMIT ?
+    ''', (limit,))
+    
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+def ambil_semua_data_sensor():
+    """Mengambil SEMUA data sensor untuk keperluan export CSV."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM sensor_data ORDER BY id ASC')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+def ambil_semua_log_serangan():
+    """Mengambil SEMUA log serangan untuk keperluan export CSV."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT * FROM attack_log ORDER BY id ASC')
+    rows = cursor.fetchall()
+    conn.close()
+    
+    return [dict(row) for row in rows]
+
+def reset_semua_data():
+    conn = sqlite3.connect(DB_NAME)
+    conn.execute('DELETE FROM sensor_data')
+    conn.execute('DELETE FROM attack_log')
+    conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('sensor_data', 'attack_log')")
+    conn.commit()
+    conn.close()
