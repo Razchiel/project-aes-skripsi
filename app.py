@@ -92,12 +92,8 @@ def api_stats():
 
 @app.route('/api/chart-data', methods=['GET'])
 def api_chart_data():
-    sensor = database.ambil_data_terbaru(50)
-    serangan = database.ambil_log_serangan(50)
-    return jsonify({
-        "sensor": sensor,
-        "serangan": serangan
-    })
+    gabungan = database.ambil_data_chart_gabungan(30)
+    return jsonify(gabungan)
 
 # ==========================================
 # ENDPOINT SIMULASI (Testing tanpa ESP32)

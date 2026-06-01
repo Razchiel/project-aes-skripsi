@@ -30,7 +30,7 @@ def proses_payload_esp32(payload_base64):
 
         try:
             hmac_obj.verify(tag_diterima)
-            status_integritas = "Verified"
+            status_integritas = "Terverifikasi"
         except ValueError:
             hmac_server = HMAC.new(SECRET_KEY, digestmod=SHA256)
             hmac_server.update(iv + ciphertext)
@@ -44,7 +44,7 @@ def proses_payload_esp32(payload_base64):
                 "hmac_dihitung_hex": hmac_dihitung_hex,
                 "payload_base64": payload_base64
             }
-            return False, "HMAC Mismatch - Terindikasi Tampering/Manipulasi Data!", waktu_proses_ms, "Tampered", crypto_info
+            return False, "HMAC Mismatch - Terindikasi Tampering/Manipulasi Data!", waktu_proses_ms, "Dicegah", crypto_info
 
         cipher = AES.new(SECRET_KEY, AES.MODE_CBC, iv)
         plaintext_padded = cipher.decrypt(ciphertext)
@@ -65,7 +65,7 @@ def proses_payload_esp32(payload_base64):
                     "plaintext_json": plaintext_str,
                     "delta_ms": delta_ms
                 }
-                return False, f"Replay Attack — delta {delta_ms}ms melebihi window 60000ms", waktu_proses_ms, "Replay/Rejected", crypto_info
+                return False, f"Replay Attack — delta {delta_ms}ms melebihi window 60000ms", waktu_proses_ms, "Dicegah", crypto_info
 
         waktu_proses_ms = (time.perf_counter() - start_time) * 1000
         crypto_info = {
@@ -79,7 +79,7 @@ def proses_payload_esp32(payload_base64):
 
     except Exception as e:
         waktu_proses_ms = (time.perf_counter() - start_time) * 1000
-        return False, f"Error: {str(e)}", waktu_proses_ms, "Error/Rejected", {}
+        return False, f"Error: {str(e)}", waktu_proses_ms, "Dicegah", {}
 
 
 def hitung_avalanche(plaintext_bytes, iv):

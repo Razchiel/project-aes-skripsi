@@ -56,7 +56,6 @@ function formatNum(val, decimals = 1) {
 
 function formatTimestamp(ts) {
     if (!ts) return '--';
-    // Tampilkan apa adanya dari database: "YYYY-MM-DD HH:MM:SS"
     return ts;
 }
 
@@ -98,7 +97,7 @@ async function fetchChartData() {
         const res = await fetch('/api/chart-data');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        updateCharts(data.sensor, data.serangan);
+        updateCharts(data);
     } catch (err) {
         console.error('Gagal mengambil data chart:', err);
     }
@@ -164,6 +163,7 @@ function renderSensorTable() {
             <td class="mono">${formatNum(row.suhu, 1)}</td>
             <td class="mono">${formatNum(row.kelembapan, 1)}</td>
             <td class="mono">${formatNum(row.waktu_dekripsi_ms, 2)}</td>
+            <td class="mono">${row.avalanche_persen != null ? formatNum(row.avalanche_persen, 2) : '0.00'}</td>
             <td>${getStatusBadge(row.status)}</td>
         </tr>
     `}).join('');
@@ -203,7 +203,7 @@ function renderAttackTable() {
         <tr class="attack-row clickable-row ${cacheIndex === 0 && currentPageAttack === 1 ? 'new-row' : ''}" data-type="attack" data-index="${cacheIndex}" title="Klik untuk lihat detail serangan dan pencegahan">
             <td>${formatTimestamp(log.timestamp)}</td>
             <td>${escapeHtml(log.jenis_serangan)}</td>
-            <td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(log.detail)}</td>
+            <td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;cursor:default;" title="${escapeHtml(log.detail)}">${escapeHtml(log.detail ? (log.detail.length > 60 ? log.detail.slice(0, 60) + '...' : log.detail) : '')}</td>
             <td>${getAttackBadge(log.status)}</td>
         </tr>
     `}).join('');
@@ -281,8 +281,8 @@ function updateSecurityBanner(stats) {
 // BADGE RENDERERS
 // ===========================
 function getStatusBadge(status) {
-    if (status === 'Verified') {
-        return '<span class="badge-verified">✓ Verified</span>';
+    if (status === 'Verified' || status === 'Terverifikasi') {
+        return '<span class="badge-verified">✓ Terverifikasi</span>';
     }
     return `<span class="badge-rejected">✗ ${escapeHtml(status)}</span>`;
 }
@@ -324,7 +324,7 @@ async function simulateNormal() {
         showSimResult('error', '✗ Gagal menghubungi server');
     } finally {
         els.btnSimulate.disabled = false;
-        els.btnSimulate.innerHTML = '🔐 Kirim Data Normal';
+        els.btnSimulate.innerHTML = 'Kirim Data Normal';
     }
 }
 
@@ -351,7 +351,7 @@ async function simulateAttack() {
         showSimResult('error', '✗ Gagal menghubungi server');
     } finally {
         els.btnAttack.disabled = false;
-        els.btnAttack.innerHTML = '💥 Simulasi Serangan';
+        els.btnAttack.innerHTML = 'Simulasi Tampering';
     }
 }
 
@@ -377,7 +377,7 @@ async function simulateReplay() {
         showSimResult('error', '✗ Gagal menghubungi server');
     } finally {
         els.btnReplay.disabled = false;
-        els.btnReplay.innerHTML = '🔁 Simulasi Replay Attack';
+        els.btnReplay.innerHTML = 'Simulasi Replay Attack';
     }
 }
 
@@ -406,7 +406,7 @@ async function resetDatabase() {
         showSimResult('error', '✗ Gagal menghubungi server');
     } finally {
         els.btnReset.disabled = false;
-        els.btnReset.innerHTML = '🗑️ Reset Database';
+        els.btnReset.innerHTML = 'Reset Database';
     }
 }
 
@@ -468,7 +468,7 @@ document.addEventListener('click', (e) => {
 // --- Verified Detail Modal ---
 function showVerifiedModal(data) {
     modalEl.className = 'modal modal-verified';
-    modalIcon.textContent = '🔐';
+    modalIcon.textContent = '';
     modalTitle.textContent = 'Detail Verifikasi & Dekripsi Data';
 
     const truncate = (s, n=64) => s && s.length > n ? s.slice(0, n) + '…' : (s || '(tidak tersedia)');
@@ -478,7 +478,7 @@ function showVerifiedModal(data) {
 
     modalBody.innerHTML = `
         <div class="modal-section">
-            <div class="modal-section-title">📋 Data Terverifikasi</div>
+            <div class="modal-section-title">Data Terverifikasi</div>
             <div class="detail-grid">
                 <span class="detail-label">Waktu</span>
                 <span class="detail-value mono">${formatTimestamp(data.timestamp)}</span>
@@ -492,7 +492,7 @@ function showVerifiedModal(data) {
         </div>
 
         <div class="modal-section">
-            <div class="modal-section-title">📦 Payload Aktual (ESP32 → Server)</div>
+            <div class="modal-section-title">Payload Aktual (ESP32 ke Server)</div>
             <div class="detail-grid">
                 <span class="detail-label">IV (16 byte)</span>
                 <span class="detail-value mono" style="font-size:0.7rem;color:var(--cyan)">${truncate(data.iv_hex, 32)}</span>
@@ -506,7 +506,7 @@ function showVerifiedModal(data) {
         </div>
 
         <div class="modal-section">
-            <div class="modal-section-title">🔓 Hasil Dekripsi — Plaintext JSON</div>
+            <div class="modal-section-title">Hasil Dekripsi - Plaintext JSON</div>
             <pre style="font-family:var(--font-mono);font-size:0.78rem;color:var(--green);
                         background:rgba(0,245,147,0.04);border:1px solid var(--border-green);
                         border-radius:var(--radius-sm);padding:var(--space-md);
@@ -514,7 +514,7 @@ function showVerifiedModal(data) {
         </div>
 
         <div class="modal-section">
-            <div class="modal-section-title">🛡️ Verifikasi Integritas</div>
+            <div class="modal-section-title">Verifikasi Integritas</div>
             <div class="detail-grid">
                 <span class="detail-label">Metode</span>
                 <span class="detail-value highlight">HMAC-SHA256</span>
@@ -536,7 +536,7 @@ function showVerifiedModal(data) {
         </div>
 
         <div class="modal-section">
-            <div class="modal-section-title">⏱️ Performa</div>
+            <div class="modal-section-title">Performa</div>
             <div class="detail-grid">
                 <span class="detail-label">Waktu Dekripsi</span>
                 <span class="detail-value highlight">${formatNum(data.waktu_dekripsi_ms, 4)} ms</span>
@@ -549,10 +549,10 @@ function showVerifiedModal(data) {
 // --- Attack Detail Modal ---
 function showAttackModal(data) {
     modalEl.className = 'modal modal-attack';
-    modalIcon.textContent = '🚨';
+    modalIcon.textContent = '';
     modalTitle.textContent = 'Detail Serangan Terdeteksi';
 
-    const isReplay = data.status === 'Replay/Rejected';
+    const isReplay = data.jenis_serangan && data.jenis_serangan.includes('Replay');
     const truncate = (s, n=64) => s && s.length > n ? s.slice(0, n) + '...' : (s || '(tidak tersedia)');
 
     const ptJson = data.plaintext_json
@@ -679,7 +679,7 @@ function showAttackModal(data) {
                 <span class="detail-label">Jenis Serangan</span>
                 <span class="detail-value danger">${escapeHtml(data.jenis_serangan)}</span>
                 <span class="detail-label">Status</span>
-                <span class="detail-value danger">Ditolak (${escapeHtml(data.status)})</span>
+                <span class="detail-value danger">${escapeHtml(data.status)}</span>
             </div>
         </div>
 
@@ -798,63 +798,39 @@ function initCharts() {
     });
 }
 
-function updateCharts(sensorData, seranganData) {
-    if (!chartSensor) return;
+function updateCharts(gabunganData) {
+    if (!chartSensor || !gabunganData) return;
 
-    const sensor   = [...(sensorData   || [])].reverse().slice(-30);
-    const serangan = [...(seranganData || [])];
+    // gabunganData is ORDER BY timestamp DESC, we want chronological (left to right)
+    const data = [...gabunganData].reverse();
 
-    const sensorMap   = {};
-    const seranganSet = new Set();
-
-    sensor.forEach(d => {
-        if (!d.timestamp) return;
+    const labels = data.map(d => {
         const t = d.timestamp.split(' ')[1];
-        if (t) sensorMap[t] = d;
+        return t || d.timestamp;
     });
-
-    serangan.forEach(log => {
-        if (!log.timestamp) return;
-        const t = log.timestamp.split(' ')[1];
-        if (t) seranganSet.add(t);
-    });
-
-    const labels = Array.from(
-        new Set([...Object.keys(sensorMap), ...seranganSet])
-    ).sort().slice(-30);
 
     // Hitung rata-rata suhu untuk posisi titik serangan
-    const validSuhu = sensor.map(d => d.suhu).filter(v => v !== null);
+    const validSuhu = data.map(d => d.suhu).filter(v => v !== null);
     const avgSuhu   = validSuhu.length > 0
         ? validSuhu.reduce((a, b) => a + b, 0) / validSuhu.length
         : 25;
     const attackSuhuY = avgSuhu * 0.75; // 75% dari rata-rata — di bawah garis suhu
 
-    const validHum  = sensor.map(d => d.kelembapan).filter(v => v !== null);
+    const validHum  = data.map(d => d.kelembapan).filter(v => v !== null);
     const avgHum    = validHum.length > 0
         ? validHum.reduce((a, b) => a + b, 0) / validHum.length
         : 60;
     const attackHumY = avgHum * 0.75;
 
-    // Build nilai dan status per label
-    const statuses   = labels.map(t => seranganSet.has(t) ? 'Attack' : 'Verified');
-    const suhuValues = labels.map((t, i) =>
-        seranganSet.has(t)
-            ? attackSuhuY
-            : (sensorMap[t] ? sensorMap[t].suhu : null)
-    );
-    const humValues  = labels.map((t, i) =>
-        seranganSet.has(t)
-            ? attackHumY
-            : (sensorMap[t] ? sensorMap[t].kelembapan : null)
-    );
+    const statuses = data.map(d => d.sumber === 'attack' ? 'Attack' : 'Verified');
+    
+    const suhuValues = data.map(d => d.sumber === 'attack' ? attackSuhuY : d.suhu);
+    const humValues  = data.map(d => d.sumber === 'attack' ? attackHumY : d.kelembapan);
 
-    // Warna titik: merah untuk serangan, normal untuk verified
     const suhuPtBg  = statuses.map(s => s === 'Attack' ? '#ef4444' : '#3b82f6');
     const humPtBg   = statuses.map(s => s === 'Attack' ? '#ef4444' : '#22c55e');
     const ptRadii   = statuses.map(s => s === 'Attack' ? 7 : 3);
 
-    // Simpan statuses ke chart instance untuk segment coloring
     chartSensor._segmentStatuses = statuses;
 
     chartSensor.data.labels = labels;
@@ -889,7 +865,7 @@ function exportCSV() {
 
     setTimeout(() => {
         btn.disabled = false;
-        btn.innerHTML = '📥 Export CSV';
+        btn.innerHTML = 'Export CSV';
     }, 1500);
 }
 
