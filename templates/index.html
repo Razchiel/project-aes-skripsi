@@ -9,11 +9,7 @@
     <title>Dashboard Keamanan — Monitoring Mikroklimat IoT</title>
 
     <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
-        rel="stylesheet">
+
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
@@ -28,7 +24,7 @@
     <header>
         <div class="header-content">
             <div class="header-left">
-                <div class="logo-icon">🔒</div>
+                <div class="logo-icon"></div>
                 <div class="logo-text">
                     <h1>Dashboard Keamanan IoT</h1>
                     <p class="subtitle">Sistem Monitoring Mikroklimat — Depo Arsip Dinas Perpustakaan dan Kearsipan
@@ -49,19 +45,16 @@
     <main>
 
         <!-- Security Status Banner -->
-        <section class="security-banner safe" id="security-banner" aria-label="Status keamanan sistem">
-            <div class="banner-icon" id="banner-icon">🛡️</div>
-            <div class="banner-text">
-                <h2 id="status-text">✓ SISTEM AMAN</h2>
-                <p id="status-desc">Semua data sensor terverifikasi — tidak ada ancaman terdeteksi</p>
-            </div>
-        </section>
+        <div class="security-bar safe" id="security-banner">
+            <span id="status-text">SISTEM AMAN</span>
+            <span class="security-bar-sub" id="status-desc">Semua data sensor terverifikasi</span>
+        </div>
 
         <!-- Stats Overview (4 Cards) -->
         <section class="stats-grid" aria-label="Ringkasan statistik">
 
             <div class="stat-card temp" id="card-suhu">
-                <div class="stat-icon-wrapper">🌡️</div>
+                <div class="stat-icon-wrapper"></div>
                 <div class="stat-content">
                     <span class="stat-label">Suhu Terakhir</span>
                     <div class="stat-value-group">
@@ -72,7 +65,7 @@
             </div>
 
             <div class="stat-card humidity" id="card-kelembapan">
-                <div class="stat-icon-wrapper">💧</div>
+                <div class="stat-icon-wrapper"></div>
                 <div class="stat-content">
                     <span class="stat-label">Kelembapan Terakhir</span>
                     <div class="stat-value-group">
@@ -83,7 +76,7 @@
             </div>
 
             <div class="stat-card verified" id="card-verified">
-                <div class="stat-icon-wrapper">✅</div>
+                <div class="stat-icon-wrapper"></div>
                 <div class="stat-content">
                     <span class="stat-label">Paket Terverifikasi</span>
                     <div class="stat-value-group">
@@ -94,7 +87,7 @@
             </div>
 
             <div class="stat-card attacks" id="card-attacks">
-                <div class="stat-icon-wrapper">🚨</div>
+                <div class="stat-icon-wrapper"></div>
                 <div class="stat-content">
                     <span class="stat-label">Serangan Terdeteksi</span>
                     <div class="stat-value-group">
@@ -112,7 +105,7 @@
             <!-- Sensor Data Table -->
             <div class="panel" id="data-panel">
                 <div class="panel-header">
-                    <h3>📊 Data Sensor Terbaru</h3>
+                    <h3>Data Sensor Terbaru</h3>
                     <span class="refresh-badge">Auto-refresh 10s</span>
                 </div>
                 <div class="table-wrapper">
@@ -139,7 +132,7 @@
             <!-- Crypto Metrics + Simulation -->
             <div class="panel" id="metrics-panel">
                 <div class="panel-header">
-                    <h3>🔐 Metrik Kriptografi</h3>
+                    <h3>Metrik Kriptografi</h3>
                 </div>
 
                 <div class="metrics-list">
@@ -164,22 +157,28 @@
                 <div class="sim-divider"></div>
 
                 <div class="simulation-section">
-                    <h4>🧪 Simulasi Pengujian</h4>
+                    <h4>Simulasi Pengujian</h4>
                     <p>Kirim data simulasi tanpa ESP32 untuk demo</p>
 
                     <div class="button-group">
-                        <button id="btn-simulate" class="btn btn-primary" type="button">
-                            🔐 Kirim Data Normal
+                        <button id="btn-simulate" class="btn" type="button"
+                            style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.3);color:#22c55e;">
+                            Kirim Data Normal
                         </button>
-                        <button id="btn-attack" class="btn btn-danger" type="button">
-                            💥 Simulasi Serangan
+                        <button id="btn-attack" class="btn" type="button"
+                            style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);color:#ef4444;">
+                            Simulasi Tampering
                         </button>
-                        <button id="btn-replay" class="btn btn-warning" type="button">
-                            🔁 Simulasi Replay Attack
+                        <button id="btn-replay" class="btn" type="button"
+                            style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.3);color:#f59e0b;">
+                            Simulasi Replay Attack
                         </button>
                     </div>
                     <div class="reset-section">
-                        <button id="btn-reset" class="btn btn-reset" type="button">🗑️ Reset Database</button>
+                        <button id="btn-reset" class="btn" type="button"
+                            style="background:transparent;border:1px solid #1e2d47;color:#526070;font-size:11px;margin-top:8px;">
+                            Reset Database
+                        </button>
                     </div>
 
                     <div class="sim-result" id="sim-result"></div>
@@ -191,7 +190,7 @@
         <!-- Attack Log -->
         <section class="panel attack-panel" id="attack-panel">
             <div class="panel-header">
-                <h3>🚨 Log Deteksi Serangan</h3>
+                <h3>Log Deteksi Serangan</h3>
                 <span class="attack-badge" id="attack-count-badge">0 insiden</span>
             </div>
             <div class="table-wrapper">
@@ -217,7 +216,7 @@
         <section class="chart-section" aria-label="Grafik data sensor">
             <div class="panel chart-panel" id="chart-panel">
                 <div class="panel-header">
-                    <h3>📊 Grafik Suhu & Kelembapan</h3>
+                    <h3>Grafik Suhu & Kelembapan</h3>
                     <div class="chart-header-right">
                         <div class="chart-legend-inline">
                             <span class="legend-dot legend-blue"></span> Suhu (°C)
@@ -225,9 +224,7 @@
                             <span class="legend-separator">|</span>
                             <span class="legend-dot legend-red"></span> Serangan Terdeteksi
                         </div>
-                        <button id="btn-export-csv" class="btn btn-export" type="button">
-                            📥 Export CSV
-                        </button>
+                        <button id="btn-export-csv" class="btn btn-export" type="button">Export CSV</button>
                     </div>
                 </div>
                 <div class="chart-container">

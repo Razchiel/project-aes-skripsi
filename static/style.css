@@ -3,34 +3,41 @@
    ============================================= */
 
 :root {
-  --bg-base: #f1f5f9;
-  --bg-surface: rgba(255, 255, 255, 0.7);
-  --bg-card: #ffffff;
-  --bg-elevated: #f8fafc;
-  --bg-hover: rgba(37, 99, 235, 0.08);
-  --bg-row-alt: rgba(0, 0, 0, 0.02);
+  --bg-base: #0a0e1a;
+  --bg-surface: #0f1729;
+  --bg-card: #0f1729;
+  --bg-elevated: #162035;
+  --bg-row-alt: rgba(255, 255, 255, 0.018);
+  --bg-row-hover: rgba(59, 130, 246, 0.05);
+  --bg-hover: rgba(59, 130, 246, 0.05);
 
-  --border-color: rgba(148, 163, 184, 0.3);
-  --border-strong: rgba(148, 163, 184, 0.5);
-  --border-green: rgba(22, 163, 74, 0.35);
-  --border-red: rgba(220, 38, 38, 0.35);
+  --border-default: #1e2d47;
+  --border-color: #1e2d47;
+  --border-strong: #243554;
+  --border-green: rgba(34, 197, 94, 0.2);
+  --border-red: rgba(239, 68, 68, 0.2);
 
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;
-  --text-mono: #334155;
+  --text-primary: #e2e8f0;
+  --text-secondary: #8899aa;
+  --text-muted: #526070;
+  --text-mono: #a8b8cc;
 
-  --accent: #2563eb;
-  --accent-dim: rgba(37, 99, 235, 0.1);
+  --accent: #3b82f6;
+  --accent-dim: rgba(59, 130, 246, 0.12);
+  --accent-border: rgba(59, 130, 246, 0.25);
   --cyan: #0891b2;
-  --green: #16a34a;
-  --green-dim: rgba(22, 163, 74, 0.15);
-  --red: #dc2626;
-  --red-dim: rgba(220, 38, 38, 0.15);
-  --amber: #d97706;
+
+  --green: #22c55e;
+  --green-dim: rgba(34, 197, 94, 0.1);
+  --green-border: rgba(34, 197, 94, 0.2);
+  --red: #ef4444;
+  --red-dim: rgba(239, 68, 68, 0.1);
+  --red-border: rgba(239, 68, 68, 0.2);
+  --amber: #f59e0b;
   --amber-dim: rgba(217, 119, 6, 0.15);
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Cascadia Code', 'Courier New', monospace;
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Consolas', 'Cascadia Code', 'Courier New', monospace;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -39,6 +46,94 @@
   --space-md: 12px;
   --space-lg: 16px;
   --space-xl: 24px;
+}
+
+body {
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+header {
+  background: var(--bg-surface);
+  border-bottom-color: var(--border-default);
+}
+
+.panel {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+.panel-header {
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border-default);
+}
+
+th {
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+}
+
+td {
+  color: var(--text-secondary);
+  border-bottom-color: var(--border-default);
+}
+
+tbody tr:nth-child(even) {
+  background: var(--bg-row-alt);
+}
+
+tbody tr:hover {
+  background: var(--bg-row-hover);
+}
+
+.stat-row {
+  background: var(--bg-surface);
+  border-color: var(--border-default);
+}
+
+.stat-cell {
+  border-right-color: var(--border-default);
+}
+
+.modal {
+  background: var(--bg-surface);
+  border-color: var(--border-strong);
+}
+
+.modal-header {
+  background: var(--bg-elevated);
+  border-bottom-color: var(--border-default);
+}
+
+.modal-section-title {
+  border-bottom-color: var(--border-default);
+  color: var(--text-muted);
+}
+
+.plaintext-json {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  color: var(--text-mono);
+}
+
+.metric-row {
+  border-bottom-color: var(--border-default);
+}
+
+.btn {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+.page-btn {
+  background: var(--bg-elevated);
+  border-color: var(--border-default);
+  color: var(--text-primary);
+}
+
+footer {
+  color: var(--text-muted);
 }
 
 /* =============================================
@@ -364,7 +459,7 @@ main {
   display: grid;
   grid-template-columns: 1.65fr 1fr;
   gap: var(--space-lg);
-  align-items: start;
+  align-items: stretch;
 }
 
 /* =============================================
@@ -556,6 +651,19 @@ tbody tr:hover {
 /* =============================================
    METRICS PANEL
    ============================================= */
+#metrics-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+#metrics-panel .panel-body,
+#metrics-panel > div:not(.panel-header) {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
 .metrics-list {
   padding: 0;
 }
@@ -1037,4 +1145,39 @@ footer p {
   .chart-header-right {
     flex-wrap: wrap;
   }
+}
+
+.security-bar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    height: 36px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.security-bar.safe {
+    background: var(--green-dim);
+    border-top: 1px solid var(--green-border);
+    border-bottom: 1px solid var(--green-border);
+    color: var(--green);
+}
+
+.security-bar.danger {
+    background: var(--red-dim);
+    border-top: 1px solid var(--red-border);
+    border-bottom: 1px solid var(--red-border);
+    color: var(--red);
+}
+
+.security-bar-sub {
+    font-weight: 400;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.75;
 }

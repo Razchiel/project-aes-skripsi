@@ -92,9 +92,12 @@ def api_stats():
 
 @app.route('/api/chart-data', methods=['GET'])
 def api_chart_data():
-    """API gabungan sensor + attack untuk grafik (titik merah anomali)."""
-    data_chart = database.ambil_data_chart_gabungan()
-    return jsonify(data_chart)
+    sensor = database.ambil_data_terbaru(50)
+    serangan = database.ambil_log_serangan(50)
+    return jsonify({
+        "sensor": sensor,
+        "serangan": serangan
+    })
 
 # ==========================================
 # ENDPOINT SIMULASI (Testing tanpa ESP32)

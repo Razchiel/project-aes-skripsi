@@ -98,7 +98,7 @@ async function fetchChartData() {
         const res = await fetch('/api/chart-data');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
-        updateCharts(data);
+        updateCharts(data.sensor, data.serangan);
     } catch (err) {
         console.error('Gagal mengambil data chart:', err);
     }
@@ -265,20 +265,15 @@ function updateMetrics(stats) {
 // UPDATE UI — SECURITY BANNER
 // ===========================
 function updateSecurityBanner(stats) {
+    const banner = $('security-banner');
     if (stats.total_serangan > 0) {
-        els.banner.classList.remove('safe');
-        els.banner.classList.add('danger');
-        els.bannerIcon.textContent = '⚠️';
-        els.statusText.textContent = '⚠ SERANGAN TERDETEKSI';
-        els.statusDesc.textContent =
-            `${stats.total_serangan} insiden manipulasi data terdeteksi — periksa log serangan`;
+        banner.className = 'security-bar danger';
+        $('status-text').textContent = 'SERANGAN TERDETEKSI';
+        $('status-desc').textContent = stats.total_serangan + ' insiden tercatat';
     } else {
-        els.banner.classList.remove('danger');
-        els.banner.classList.add('safe');
-        els.bannerIcon.textContent = '🛡️';
-        els.statusText.textContent = '✓ SISTEM AMAN';
-        els.statusDesc.textContent =
-            'Semua data sensor terverifikasi — tidak ada ancaman terdeteksi';
+        banner.className = 'security-bar safe';
+        $('status-text').textContent = 'SISTEM AMAN';
+        $('status-desc').textContent = 'Semua data sensor terverifikasi';
     }
 }
 
@@ -707,65 +702,76 @@ function initCharts() {
             labels: [],
             datasets: [
                 {
-                    label: 'Suhu (°C)',
+                    label: 'Suhu (C)',
                     data: [],
                     borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.08)',
+                    backgroundColor: 'transparent',
                     pointBackgroundColor: [],
                     pointBorderColor: [],
                     pointRadius: [],
-                    tension: 0.3,
+                    tension: 0,
                     borderWidth: 2,
                     fill: false,
+                    spanGaps: true,
+                    segment: {
+                        borderColor: ctx => {
+                            const chart = ctx.chart;
+                            const statuses = chart._segmentStatuses || [];
+                            const i = ctx.p1DataIndex;  // p1 bukan p0
+                            return statuses[i] === 'Attack' ? '#ef4444' : '#3b82f6';
+                        }
+                    }
                 },
                 {
                     label: 'Kelembapan (%RH)',
                     data: [],
-                    borderColor: '#10b981',
-                    backgroundColor: 'rgba(16, 185, 129, 0.08)',
+                    borderColor: '#22c55e',
+                    backgroundColor: 'transparent',
                     pointBackgroundColor: [],
                     pointBorderColor: [],
                     pointRadius: [],
-                    tension: 0.3,
+                    tension: 0,
                     borderWidth: 2,
                     fill: false,
+                    spanGaps: true,
+                    segment: {
+                        borderColor: ctx => {
+                            const chart = ctx.chart;
+                            const statuses = chart._segmentStatuses || [];
+                            const i = ctx.p1DataIndex;  // p1 bukan p0
+                            return statuses[i] === 'Attack' ? '#ef4444' : '#22c55e';
+                        }
+                    }
                 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            interaction: {
-                intersect: false,
-                mode: 'index'
-            },
+            interaction: { intersect: false, mode: 'index' },
             plugins: {
                 legend: {
                     labels: {
-                        color: '#1e293b',
-                        font: { family: 'Inter', size: 11 }
+                        color: '#8899aa',
+                        font: { family: 'Consolas, monospace', size: 11 }
                     }
                 },
                 tooltip: {
-                    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                    borderColor: 'rgba(148, 163, 184, 0.3)',
+                    backgroundColor: '#0f1729',
+                    borderColor: '#1e2d47',
                     borderWidth: 1,
-                    titleColor: '#0f172a',
-                    bodyColor: '#334155',
-                    titleFont: { family: 'Inter', size: 12, weight: 600 },
-                    bodyFont: { family: 'JetBrains Mono', size: 11 },
+                    titleColor: '#e2e8f0',
+                    bodyColor: '#8899aa',
                     padding: 12,
-                    cornerRadius: 8,
+                    cornerRadius: 4,
                     callbacks: {
-                        label: function (context) {
-                            const idx = context.dataIndex;
-                            const chart = context.chart;
-                            // Cek apakah titik ini anomaly (dari data status)
-                            const statuses = chart._anomalyStatuses || [];
-                            if (statuses[idx] === 'Attack') {
-                                return '⚠ SERANGAN TERDETEKSI — data gagal verifikasi';
+                        label: function(context) {
+                            const statuses = context.chart._segmentStatuses || [];
+                            if (statuses[context.dataIndex] === 'Attack') {
+                                return 'Serangan terdeteksi -- paket ditolak';
                             }
-                            return context.dataset.label + ': ' + context.formattedValue;
+                            const unit = context.datasetIndex === 0 ? ' C' : ' %RH';
+                            return context.dataset.label + ': ' + context.parsed.y + unit;
                         }
                     }
                 }
@@ -773,83 +779,95 @@ function initCharts() {
             scales: {
                 x: {
                     ticks: {
-                        color: '#64748b',
-                        font: { family: 'JetBrains Mono', size: 10 },
+                        color: '#526070',
+                        font: { family: 'Consolas, monospace', size: 10 },
                         maxRotation: 45,
                         maxTicksLimit: 12
                     },
-                    grid: { color: '#e2e8f0' }
+                    grid: { display: false }
                 },
                 y: {
                     ticks: {
-                        color: '#64748b',
-                        font: { family: 'JetBrains Mono', size: 10 }
+                        color: '#526070',
+                        font: { family: 'Consolas, monospace', size: 10 }
                     },
-                    grid: { color: '#e2e8f0' }
+                    grid: { display: false }
                 }
             }
         }
     });
 }
 
-function updateCharts(data) {
-    if (!data || data.length === 0 || !chartSensor) return;
+function updateCharts(sensorData, seranganData) {
+    if (!chartSensor) return;
 
-    const chronological = [...data].reverse().slice(-20);
+    const sensor   = [...(sensorData   || [])].reverse().slice(-30);
+    const serangan = [...(seranganData || [])];
 
-    const labels = chronological.map(d => {
-        if (!d.timestamp) return '';
-        const parts = d.timestamp.split(' ');
-        return parts.length > 1 ? parts[1] : d.timestamp;
+    const sensorMap   = {};
+    const seranganSet = new Set();
+
+    sensor.forEach(d => {
+        if (!d.timestamp) return;
+        const t = d.timestamp.split(' ')[1];
+        if (t) sensorMap[t] = d;
     });
 
-    // Pisahkan nilai null untuk Attack — garis tidak putus karena
-    // kita isi dengan nilai interpolasi titik valid terdekat
-    const rawSuhu = chronological.map(d =>
-        d.status === 'Attack' ? null : d.suhu
+    serangan.forEach(log => {
+        if (!log.timestamp) return;
+        const t = log.timestamp.split(' ')[1];
+        if (t) seranganSet.add(t);
+    });
+
+    const labels = Array.from(
+        new Set([...Object.keys(sensorMap), ...seranganSet])
+    ).sort().slice(-30);
+
+    // Hitung rata-rata suhu untuk posisi titik serangan
+    const validSuhu = sensor.map(d => d.suhu).filter(v => v !== null);
+    const avgSuhu   = validSuhu.length > 0
+        ? validSuhu.reduce((a, b) => a + b, 0) / validSuhu.length
+        : 25;
+    const attackSuhuY = avgSuhu * 0.75; // 75% dari rata-rata — di bawah garis suhu
+
+    const validHum  = sensor.map(d => d.kelembapan).filter(v => v !== null);
+    const avgHum    = validHum.length > 0
+        ? validHum.reduce((a, b) => a + b, 0) / validHum.length
+        : 60;
+    const attackHumY = avgHum * 0.75;
+
+    // Build nilai dan status per label
+    const statuses   = labels.map(t => seranganSet.has(t) ? 'Attack' : 'Verified');
+    const suhuValues = labels.map((t, i) =>
+        seranganSet.has(t)
+            ? attackSuhuY
+            : (sensorMap[t] ? sensorMap[t].suhu : null)
     );
-    const rawHum = chronological.map(d =>
-        d.status === 'Attack' ? null : d.kelembapan
+    const humValues  = labels.map((t, i) =>
+        seranganSet.has(t)
+            ? attackHumY
+            : (sensorMap[t] ? sensorMap[t].kelembapan : null)
     );
 
-    // Hitung midpoint dari data valid — posisi Y untuk titik merah
-    const validSuhu = rawSuhu.filter(v => v !== null);
-    const validHum = rawHum.filter(v => v !== null);
-    const midSuhu = validSuhu.length > 0
-        ? (Math.max(...validSuhu) + Math.min(...validSuhu)) / 2
-        : 30;
-    const midHum = validHum.length > 0
-        ? (Math.max(...validHum) + Math.min(...validHum)) / 2
-        : 65;
+    // Warna titik: merah untuk serangan, normal untuk verified
+    const suhuPtBg  = statuses.map(s => s === 'Attack' ? '#ef4444' : '#3b82f6');
+    const humPtBg   = statuses.map(s => s === 'Attack' ? '#ef4444' : '#22c55e');
+    const ptRadii   = statuses.map(s => s === 'Attack' ? 7 : 3);
 
-    // Isi null dengan midpoint supaya titik merah punya posisi Y
-    // tapi tetap tandai sebagai Attack untuk warna/radius
-    const suhuValues = rawSuhu.map((v, i) =>
-        chronological[i].status === 'Attack' ? midSuhu : v
-    );
-    const kelembapanValues = rawHum.map((v, i) =>
-        chronological[i].status === 'Attack' ? midHum : v
-    );
-
-    const statuses = chronological.map(d => d.status);
-    chartSensor._anomalyStatuses = statuses;
-
-    const suhuPtBg = statuses.map(s => s === 'Attack' ? '#ef4444' : '#3b82f6');
-    const suhuPtBorder = statuses.map(s => s === 'Attack' ? '#ef4444' : '#3b82f6');
-    const humPtBg = statuses.map(s => s === 'Attack' ? '#ef4444' : '#10b981');
-    const humPtBorder = statuses.map(s => s === 'Attack' ? '#ef4444' : '#10b981');
-    const ptRadii = statuses.map(s => s === 'Attack' ? 6 : 3);
-
-    chartSensor.data.datasets[0].pointBackgroundColor = suhuPtBg;
-    chartSensor.data.datasets[0].pointBorderColor = suhuPtBorder;
-    chartSensor.data.datasets[0].pointRadius = ptRadii;
-    chartSensor.data.datasets[1].pointBackgroundColor = humPtBg;
-    chartSensor.data.datasets[1].pointBorderColor = humPtBorder;
-    chartSensor.data.datasets[1].pointRadius = ptRadii;
+    // Simpan statuses ke chart instance untuk segment coloring
+    chartSensor._segmentStatuses = statuses;
 
     chartSensor.data.labels = labels;
-    chartSensor.data.datasets[0].data = suhuValues;
-    chartSensor.data.datasets[1].data = kelembapanValues;
+
+    chartSensor.data.datasets[0].data               = suhuValues;
+    chartSensor.data.datasets[0].pointBackgroundColor = suhuPtBg;
+    chartSensor.data.datasets[0].pointBorderColor    = suhuPtBg;
+    chartSensor.data.datasets[0].pointRadius         = ptRadii;
+
+    chartSensor.data.datasets[1].data               = humValues;
+    chartSensor.data.datasets[1].pointBackgroundColor = humPtBg;
+    chartSensor.data.datasets[1].pointBorderColor    = humPtBg;
+    chartSensor.data.datasets[1].pointRadius         = ptRadii;
 
     chartSensor.update('none');
 }
