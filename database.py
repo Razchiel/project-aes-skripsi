@@ -1,5 +1,7 @@
 import sqlite3
 from datetime import datetime
+import hashlib
+import secrets
 
 DB_NAME = "mikroklimat.db"
 
@@ -32,6 +34,8 @@ def init_db():
     _migrasi_kolom(cursor)
     conn.commit()
     conn.close()
+    
+    init_admin_table()
 
 def _migrasi_kolom(cursor):
     migrations = [
@@ -197,3 +201,97 @@ def reset_semua_data():
     conn.execute("DELETE FROM sqlite_sequence WHERE name IN ('sensor_data', 'attack_log')")
     conn.commit()
     conn.close()
+
+def init_admin_table():
+    """Buat tabel admin_users jika belum ada."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME
+        )
+    ''')
+    conn.commit()
+
+    # Buat akun admin default jika tabel masih kosong
+    cursor.execute("SELECT COUNT(*) FROM admin_users")
+    if cursor.fetchone()[0] == 0:
+        _buat_admin(cursor, "admin", "admin123")
+        print("[DB] Akun default dibuat: admin / admin123")
+
+    conn.commit()
+    conn.close()
+
+def _buat_admin(cursor, username, password):
+    salt = secrets.token_hex(16)
+    password_hash = hashlib.sha256((password + salt).encode()).hexdigest()
+    cursor.execute(
+        "INSERT INTO admin_users (username, password_hash, salt) VALUES (?, ?, ?)",
+        (username, password_hash, salt)
+    )
+
+def verifikasi_admin(username, password):
+    """Return True jika username & password cocok, sekaligus update last_login."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM admin_users WHERE username = ?", (username,))
+    user = cursor.fetchone()
+
+    if not user:
+        conn.close()
+        return False
+
+    password_hash = hashlib.sha256((password + user['salt']).encode()).hexdigest()
+    if password_hash == user['password_hash']:
+        cursor.execute(
+            "UPDATE admin_users SET last_login = ? WHERE username = ?",
+            (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), username)
+        )
+        conn.commit()
+        conn.close()
+        return True
+
+    conn.close()
+    return False
+
+def daftar_admin():
+    """Ambil semua akun admin (tanpa hash) untuk manajemen."""
+    conn = sqlite3.connect(DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, username, created_at, last_login FROM admin_users ORDER BY id")
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def tambah_admin(username, password):
+    """Tambah akun admin baru. Return False jika username sudah ada."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    try:
+        _buat_admin(cursor, username, password)
+        conn.commit()
+        return True
+    except sqlite3.IntegrityError:
+        return False
+    finally:
+        conn.close()
+
+def hapus_admin(admin_id):
+    """Hapus akun admin berdasarkan id. Tidak bisa hapus jika hanya 1 admin."""
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM admin_users")
+    if cursor.fetchone()[0] <= 1:
+        conn.close()
+        return False, "Minimal harus ada 1 admin."
+    cursor.execute("DELETE FROM admin_users WHERE id = ?", (admin_id,))
+    conn.commit()
+    conn.close()
+    return True, "Admin dihapus."

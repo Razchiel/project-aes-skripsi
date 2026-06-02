@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin Login — Sistem Monitoring Mikroklimat</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --accent: #4f8ef7;
+    --accent-hover: #3a7be0;
+    --accent-dim: #1e3a6e;
+    --red: #f87171;
+    --red-dim: #450a0a;
+    --green: #34d399;
+    --radius: 10px;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+    --mono: 'Courier New', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: var(--sans); min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; overflow: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  /* Glow blob */
+  .blob {
+    position: absolute; width: 400px; height: 400px; border-radius: 50%;
+    background: radial-gradient(circle, rgba(79,142,247,0.12) 0%, transparent 70%);
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  .card {
+    position: relative; z-index: 1;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 40px 36px; width: 100%; max-width: 400px;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+
+  /* Header */
+  .card-header { text-align: center; margin-bottom: 32px; }
+  .shield-icon {
+    width: 52px; height: 52px; margin: 0 auto 16px;
+    background: var(--accent-dim); border: 1px solid var(--accent);
+    border-radius: 14px; display: flex; align-items: center; justify-content: center;
+    font-size: 24px; box-shadow: 0 0 24px rgba(79,142,247,0.2);
+  }
+  .card-header h1 { font-size: 20px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .card-header p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+  /* System badge */
+  .sys-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 12px; font-size: 11px;
+    color: var(--muted); font-family: var(--mono); margin-bottom: 16px;
+  }
+  .sys-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+
+  /* Error alert */
+  .alert-error {
+    background: var(--red-dim); border: 1px solid var(--red);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 20px;
+    font-size: 13px; color: var(--red);
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Form */
+  .form-group { margin-bottom: 18px; }
+  .form-label {
+    display: block; font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.6px;
+    color: var(--muted); margin-bottom: 7px;
+  }
+  .input-wrap { position: relative; }
+  .input-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 15px; color: var(--muted); pointer-events: none;
+  }
+  .form-input {
+    width: 100%; padding: 11px 14px 11px 38px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--text); font-size: 14px;
+    font-family: var(--sans); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(79,142,247,0.15);
+  }
+  .form-input::placeholder { color: var(--muted); }
+
+  /* Toggle password */
+  .toggle-pw {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    font-size: 14px; padding: 2px 4px;
+  }
+  .toggle-pw:hover { color: var(--accent); }
+
+  /* Submit button */
+  .btn-submit {
+    width: 100%; padding: 12px; margin-top: 8px;
+    background: var(--accent); border: none; border-radius: 8px;
+    color: #fff; font-size: 14px; font-weight: 600;
+    cursor: pointer; font-family: var(--sans);
+    transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 16px rgba(79,142,247,0.3);
+  }
+  .btn-submit:hover { background: var(--accent-hover); box-shadow: 0 6px 20px rgba(79,142,247,0.4); }
+  .btn-submit:active { transform: scale(0.98); }
+
+  /* Footer */
+  .card-footer {
+    margin-top: 24px; padding-top: 20px;
+    border-top: 1px solid var(--border);
+    text-align: center; font-size: 12px; color: var(--muted);
+    line-height: 1.6;
+  }
+  .card-footer strong { color: var(--text); font-family: var(--mono); }
+
+  /* Shake animation untuk error */
+  @keyframes shake {
+    0%,100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+  .shake { animation: shake 0.4s ease; }
+</style>
+</head>
+<body>
+<div class="blob"></div>
+
+<div class="card" id="card">
+  <div class="card-header">
+    <div class="shield-icon">SEC</div>
+    <div class="sys-badge"><span class="dot"></span> mikroklimat.db</div>
+    <h1>Database Viewer</h1>
+    <p>Masuk sebagai admin untuk mengakses<br>data sensor dan log keamanan.</p>
+  </div>
+
+  {% if error %}
+  <div class="alert-error" id="alert-error">
+    <span>!</span> {{ error }}
+  </div>
+  {% endif %}
+
+  <form method="POST" action="/login" onsubmit="handleSubmit(event)">
+    <div class="form-group">
+      <label class="form-label" for="username">Username</label>
+      <div class="input-wrap">
+        <span class="input-icon">@</span>
+        <input
+          class="form-input" type="text" id="username" name="username"
+          placeholder="Masukkan username" autocomplete="username"
+          required autofocus
+        >
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="password">Password</label>
+      <div class="input-wrap">
+        <span class="input-icon">*</span>
+        <input
+          class="form-input" type="password" id="password" name="password"
+          placeholder="Masukkan password" autocomplete="current-password"
+          required
+        >
+        <button type="button" class="toggle-pw" onclick="togglePw()" title="Tampilkan password">
+          <span id="pw-eye">Show</span>
+        </button>
+      </div>
+    </div>
+
+    <button type="submit" class="btn-submit" id="btn-submit">
+      <span id="btn-text">Masuk</span>
+    </button>
+  </form>
+
+</div>
+
+<script>
+  function togglePw() {
+    const inp = document.getElementById('password');
+    const eye = document.getElementById('pw-eye');
+    if (inp.type === 'password') {
+      inp.type = 'text';
+      eye.textContent = 'Hide';
+    } else {
+      inp.type = 'password';
+      eye.textContent = 'Show';
+    }
+  }
+
+  function handleSubmit(e) {
+    const btn = document.getElementById('btn-submit');
+    document.getElementById('btn-text').textContent = 'Memverifikasi...';
+    setTimeout(() => {
+      btn.disabled = true;
+      btn.style.opacity = '0.7';
+    }, 0);
+  }
+
+  // Shake card jika ada error
+  if (document.getElementById('alert-error')) {
+    document.getElementById('card').classList.add('shake');
+  }
+</script>
+</body>
+</html>

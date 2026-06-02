@@ -1,12 +1,16 @@
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template, make_response, session, redirect, url_for
 import crypto
 import database
 import random
 import base64 as b64
 import csv
 import io
+import sqlite3
+import os
+from functools import wraps
 
 app = Flask(__name__)
+app.secret_key = os.urandom(24)  # session cookie enkripsi
 
 # Inisialisasi database saat aplikasi pertama kali dijalankan
 database.init_db()
@@ -231,6 +235,129 @@ def export_csv():
     response.headers['Content-Type'] = 'text/csv; charset=utf-8'
     response.headers['Content-Disposition'] = 'attachment; filename=laporan_mikroklimat.csv'
     return response
+
+# ==========================================
+# AUTENTIKASI ADMIN
+# ==========================================
+def login_required(f):
+    """Decorator — redirect ke login jika belum autentikasi."""
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('admin_logged_in'):
+            return redirect(url_for('login_page'))
+        return f(*args, **kwargs)
+    return decorated
+
+@app.route('/login', methods=['GET'])
+def login_page():
+    if session.get('admin_logged_in'):
+        return redirect(url_for('db_viewer'))
+    return render_template('login.html', error=None)
+
+@app.route('/login', methods=['POST'])
+def login_post():
+    username = request.form.get('username', '').strip()
+    password = request.form.get('password', '')
+    if database.verifikasi_admin(username, password):
+        session['admin_logged_in'] = True
+        session['admin_username'] = username
+        return redirect(url_for('db_viewer'))
+    return render_template('login.html', error='Username atau password salah.')
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login_page'))
+
+# ==========================================
+# DB VIEWER (Dilindungi Login)
+# ==========================================
+@app.route('/db-viewer')
+@login_required
+def db_viewer():
+    """Halaman viewer database mirip phpMyAdmin."""
+    return render_template('db_viewer.html', username=session.get('admin_username'))
+
+@app.route('/api/db-viewer/<table_name>', methods=['GET'])
+@login_required
+def api_db_viewer(table_name):
+    """API untuk DB Viewer — ambil isi tabel dengan pagination."""
+    ALLOWED_TABLES = ['sensor_data', 'attack_log', 'admin_users']
+    if table_name not in ALLOWED_TABLES:
+        return jsonify({"error": "Tabel tidak diizinkan"}), 403
+
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    search = request.args.get('search', '').strip()
+    offset = (page - 1) * per_page
+
+    conn = sqlite3.connect(database.DB_NAME)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    # Kolom sensitif disembunyikan di tabel admin
+    if table_name == 'admin_users':
+        select_cols = "id, username, password_hash, created_at, last_login"
+    else:
+        select_cols = "*"
+
+    # Ambil nama kolom
+    cursor.execute(f"PRAGMA table_info({table_name})")
+    all_cols = [row['name'] for row in cursor.fetchall()]
+    # Kolom yang ditampilkan (sensor_data & attack_log tampil semua)
+    display_cols = ['id','username','password_hash','created_at','last_login'] if table_name == 'admin_users' else all_cols
+
+    # Query dengan search filter
+    if search:
+        conditions = " OR ".join([f"CAST({col} AS TEXT) LIKE ?" for col in display_cols])
+        like_val = [f"%{search}%"] * len(display_cols)
+        cursor.execute(f"SELECT COUNT(*) FROM (SELECT {select_cols} FROM {table_name}) WHERE {conditions}", like_val)
+        total = cursor.fetchone()[0]
+        cursor.execute(f"SELECT {select_cols} FROM {table_name} WHERE {conditions} ORDER BY id DESC LIMIT ? OFFSET ?",
+                       like_val + [per_page, offset])
+    else:
+        cursor.execute(f"SELECT COUNT(*) FROM {table_name}")
+        total = cursor.fetchone()[0]
+        cursor.execute(f"SELECT {select_cols} FROM {table_name} ORDER BY id DESC LIMIT ? OFFSET ?", (per_page, offset))
+
+    rows = [dict(row) for row in cursor.fetchall()]
+    conn.close()
+
+    return jsonify({
+        "columns": display_cols,
+        "rows": rows,
+        "total": total,
+        "page": page,
+        "per_page": per_page,
+        "total_pages": max(1, -(-total // per_page))  # ceiling division
+    })
+
+@app.route('/api/db-viewer/admin/tambah', methods=['POST'])
+@login_required
+def admin_tambah():
+    data = request.get_json()
+    username = data.get('username', '').strip()
+    password = data.get('password', '')
+    if not username or not password:
+        return jsonify({"status": "error", "pesan": "Username dan password wajib diisi."}), 400
+    if len(password) < 6:
+        return jsonify({"status": "error", "pesan": "Password minimal 6 karakter."}), 400
+    ok = database.tambah_admin(username, password)
+    if ok:
+        return jsonify({"status": "success", "pesan": f"Admin '{username}' berhasil ditambahkan."})
+    return jsonify({"status": "error", "pesan": "Username sudah digunakan."}), 409
+
+@app.route('/api/db-viewer/admin/hapus/<int:admin_id>', methods=['DELETE'])
+@login_required
+def admin_hapus(admin_id):
+    # Tidak bisa hapus diri sendiri
+    cursor = sqlite3.connect(database.DB_NAME)
+    row = cursor.execute("SELECT username FROM admin_users WHERE id=?", (admin_id,)).fetchone()
+    cursor.close()
+    if row and row[0] == session.get('admin_username'):
+        return jsonify({"status": "error", "pesan": "Tidak bisa menghapus akun sendiri."}), 403
+    ok, pesan = database.hapus_admin(admin_id)
+    return jsonify({"status": "success" if ok else "error", "pesan": pesan})
 
 if __name__ == '__main__':
     # Jalankan server di semua IP lokal pada port 5000

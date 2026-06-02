@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DB Viewer — mikroklimat.db</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --border: #2e3350;
+    --text: #e2e8f0;
+    --muted: #8892a4;
+    --accent: #4f8ef7;
+    --accent-dim: #1e3a6e;
+    --green: #34d399;
+    --green-dim: #064e3b;
+    --red: #f87171;
+    --red-dim: #450a0a;
+    --amber: #fbbf24;
+    --amber-dim: #451a03;
+    --mono: 'Courier New', monospace;
+    --sans: 'Segoe UI', system-ui, sans-serif;
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+    background: var(--surface); position: sticky; top: 0; z-index: 100;
+  }
+  .topbar .logo { font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.5px; }
+  .topbar .dbname {
+    background: var(--accent-dim); color: var(--accent);
+    padding: 3px 10px; border-radius: var(--radius-sm);
+    font-family: var(--mono); font-size: 12px;
+  }
+  .topbar .ml { margin-left: auto; }
+  .topbar .conn-badge {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--green);
+  }
+  .topbar .conn-badge span.dot {
+    width: 7px; height: 7px; border-radius: 50%; background: var(--green);
+    box-shadow: 0 0 6px var(--green);
+  }
+  .user-info {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 4px 10px; font-size: 12px;
+  }
+  .user-info .avatar {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent-dim);
+    color: var(--accent); font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logout-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 12px; font-family: var(--sans); transition: all 0.15s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+
+  /* MODAL */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; width: 100%; max-width: 400px; overflow: hidden;
+    animation: fadeUp 0.2s ease;
+  }
+  @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+    background: var(--surface2);
+  }
+  .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; font-weight: 600; }
+  .modal-input {
+    width: 100%; padding: 9px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; outline: none; font-family: var(--sans);
+  }
+  .modal-input:focus { border-color: var(--accent); }
+  .btn-primary { background: var(--accent); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 500; }
+  .btn-primary:hover { background: #3a7be0; }
+  .btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--sans); }
+  .btn-cancel:hover { color: var(--text); border-color: var(--muted); }
+  .btn-danger { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--sans); }
+  .btn-danger:hover { background: #7f1d1d; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; z-index: 400;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; font-size: 13px;
+    display: none; align-items: center; gap: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.show { display: flex; }
+  .toast.ok { border-color: var(--green); color: var(--green); }
+  .toast.err { border-color: var(--red); color: var(--red); }
+
+  /* LAYOUT */
+  .layout { display: flex; height: calc(100vh - 49px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    width: 220px; min-width: 220px; background: var(--surface);
+    border-right: 1px solid var(--border); display: flex; flex-direction: column;
+    overflow-y: auto;
+  }
+  .sidebar-section { padding: 14px 14px 6px; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; font-weight: 600; }
+  .sidebar-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 16px; cursor: pointer; transition: background 0.15s;
+    font-size: 13px; color: var(--muted); border-left: 3px solid transparent;
+  }
+  .sidebar-item:hover { background: var(--surface2); color: var(--text); }
+  .sidebar-item.active { background: var(--accent-dim); color: var(--accent); border-left-color: var(--accent); }
+  .sidebar-item .icon { font-size: 15px; opacity: 0.7; }
+  .sidebar-item .badge {
+    margin-left: auto; background: var(--surface2);
+    padding: 1px 7px; border-radius: 10px; font-size: 11px; color: var(--muted);
+  }
+  .sidebar-item.active .badge { background: var(--accent-dim); color: var(--accent); }
+
+  .sidebar-divider { height: 1px; background: var(--border); margin: 8px 0; }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 12px 20px;
+    border-bottom: 1px solid var(--border); background: var(--surface2); flex-wrap: wrap;
+  }
+  .toolbar .table-title { font-size: 15px; font-weight: 600; color: var(--text); }
+  .toolbar .row-total { font-size: 12px; color: var(--muted); }
+  .search-wrap {
+    margin-left: auto; display: flex; align-items: center; gap: 6px;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 5px 10px;
+  }
+  .search-wrap input {
+    background: transparent; border: none; outline: none; color: var(--text);
+    font-size: 13px; width: 200px; font-family: var(--sans);
+  }
+  .search-wrap input::placeholder { color: var(--muted); }
+  .search-icon { color: var(--muted); font-size: 14px; }
+
+  /* TABLE CONTAINER */
+  .table-wrap { flex: 1; overflow: auto; padding: 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  thead { position: sticky; top: 0; z-index: 10; }
+  thead tr { background: var(--surface2); }
+  th {
+    padding: 10px 14px; text-align: left; font-weight: 600; font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted);
+    border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  th.sortable { cursor: pointer; user-select: none; }
+  th.sortable:hover { color: var(--accent); }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; cursor: pointer; }
+  tbody tr:hover { background: var(--surface2); }
+  tbody tr.selected { background: var(--accent-dim); }
+  td {
+    padding: 9px 14px; vertical-align: top; max-width: 260px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  td.mono { font-family: var(--mono); font-size: 11px; color: var(--amber); }
+  td.mono-plain { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  td.null { color: var(--muted); font-style: italic; }
+
+  /* BADGES */
+  .badge-ok { background: var(--green-dim); color: var(--green); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-err { background: var(--red-dim); color: var(--red); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-warn { background: var(--amber-dim); color: var(--amber); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge-info { background: var(--accent-dim); color: var(--accent); padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+
+  /* PAGINATION */
+  .pagination {
+    display: flex; align-items: center; gap: 8px; padding: 10px 20px;
+    border-top: 1px solid var(--border); background: var(--surface);
+    font-size: 12px; color: var(--muted); flex-wrap: wrap;
+  }
+  .pagination .info { margin-right: auto; }
+  .per-page-wrap { display: flex; align-items: center; gap: 6px; }
+  .per-page-wrap select {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 3px 6px; border-radius: var(--radius-sm); font-size: 12px; outline: none;
+  }
+  .page-btn {
+    background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+    padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer; font-size: 12px;
+    transition: background 0.15s;
+  }
+  .page-btn:hover:not(:disabled) { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+  .page-btn:disabled { opacity: 0.35; cursor: default; }
+  .page-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #page-input {
+    width: 44px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); padding: 3px 6px; border-radius: var(--radius-sm);
+    font-size: 12px; text-align: center; outline: none;
+  }
+
+  /* DETAIL PANEL */
+  .detail-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 200; align-items: flex-end; justify-content: flex-end;
+  }
+  .detail-overlay.show { display: flex; }
+  .detail-panel {
+    width: 480px; height: 100%; background: var(--surface);
+    border-left: 1px solid var(--border); display: flex; flex-direction: column;
+    animation: slideIn 0.2s ease;
+    overflow: hidden;
+  }
+  @keyframes slideIn { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .detail-header {
+    display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+    border-bottom: 1px solid var(--border); background: var(--surface2);
+    font-size: 14px; font-weight: 600;
+  }
+  .detail-header .close-btn {
+    margin-left: auto; background: none; border: 1px solid var(--border);
+    color: var(--muted); padding: 3px 10px; border-radius: var(--radius-sm);
+    cursor: pointer; font-size: 12px;
+  }
+  .detail-header .close-btn:hover { color: var(--text); border-color: var(--muted); }
+  .detail-body { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+  .detail-field { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; }
+  .detail-field .field-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.7px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+  .detail-field .field-val { font-size: 13px; color: var(--text); word-break: break-all; line-height: 1.5; }
+  .detail-field .field-val.mono { font-family: var(--mono); font-size: 11px; color: var(--amber); }
+  .detail-field .field-val.mono-plain { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+  .detail-field .field-val.null { color: var(--muted); font-style: italic; }
+  .copy-btn {
+    float: right; background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 1px 7px; border-radius: var(--radius-sm); cursor: pointer; font-size: 10px; margin-left: 6px;
+  }
+  .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* LOADING */
+  .loading { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--muted); gap: 10px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 200px; gap: 8px; color: var(--muted); }
+
+  .user-info {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 4px 10px; font-size: 12px;
+  }
+  .user-info .avatar {
+    width: 22px; height: 22px; border-radius: 50%; background: var(--accent-dim);
+    color: var(--accent); font-size: 11px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .logout-btn {
+    background: none; border: 1px solid var(--border); color: var(--muted);
+    padding: 4px 10px; border-radius: var(--radius-sm); cursor: pointer;
+    font-size: 12px; font-family: var(--sans); transition: all 0.15s;
+  }
+  .logout-btn:hover { border-color: var(--red); color: var(--red); }
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.6); z-index: 300;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; width: 100%; max-width: 400px; overflow: hidden;
+    animation: fadeUp 0.2s ease;
+  }
+  @keyframes fadeUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-header {
+    padding: 16px 18px; border-bottom: 1px solid var(--border);
+    font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px;
+    background: var(--surface2);
+  }
+  .modal-body { padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+  .modal-footer { padding: 12px 18px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+  .modal-label { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; font-weight: 600; }
+  .modal-input {
+    width: 100%; padding: 9px 12px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; outline: none; font-family: var(--sans);
+  }
+  .modal-input:focus { border-color: var(--accent); }
+  .btn-primary { background: var(--accent); border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--sans); font-weight: 500; }
+  .btn-primary:hover { background: #3a7be0; }
+  .btn-cancel { background: none; border: 1px solid var(--border); color: var(--muted); padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 13px; font-family: var(--sans); }
+  .btn-cancel:hover { color: var(--text); border-color: var(--muted); }
+  .btn-danger { background: var(--red-dim); border: 1px solid var(--red); color: var(--red); padding: 4px 10px; border-radius: 4px; cursor: pointer; font-size: 11px; font-family: var(--sans); }
+  .btn-danger:hover { background: #7f1d1d; }
+  .toast {
+    position: fixed; bottom: 20px; right: 20px; z-index: 400;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 16px; font-size: 13px;
+    display: none; align-items: center; gap: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  }
+  .toast.err { border-color: var(--red); color: var(--red); }
+  .dropdown-item:hover { background: var(--surface2); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="logo">[] DB Viewer</div>
+  <div class="dbname">mikroklimat.db</div>
+  <div class="ml"></div>
+  <div class="conn-badge"><span class="dot"></span> Connected</div>
+  <div class="user-info dropdown-trigger" onclick="toggleAdminDropdown()" style="cursor:pointer; position:relative;">
+    <div class="avatar">{{ username[0]|upper if username else 'A' }}</div>
+    <span>{{ username }}</span>
+    
+    <div id="admin-dropdown" style="display:none; position:absolute; top:36px; right:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-sm); width:150px; z-index:200; box-shadow:0 4px 12px rgba(0,0,0,0.5); text-align:left;">
+      <div style="padding:8px 12px; border-bottom:1px solid var(--border); font-size:12px; color:var(--muted); font-weight:600;">Admin Menu</div>
+      <div class="dropdown-item" onclick="openModal('modal-tambah')" style="padding:10px 12px; cursor:pointer; font-size:13px; color:var(--text);">Manajemen Akun</div>
+      <div class="dropdown-item" onclick="confirmLogout()" style="padding:10px 12px; cursor:pointer; font-size:13px; color:var(--red);">Logout</div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST NOTIF -->
+<div class="toast" id="toast"></div>
+
+<!-- MODAL TAMBAH ADMIN -->
+<div class="modal-overlay" id="modal-tambah" onclick="closeModalOutside(event,'modal-tambah')">
+  <div class="modal">
+    <div class="modal-header">Tambah Admin Baru</div>
+    <div class="modal-body">
+      <div>
+        <div class="modal-label">Username</div>
+        <input class="modal-input" type="text" id="new-username" placeholder="contoh: admin2">
+      </div>
+      <div>
+        <div class="modal-label">Password (min. 6 karakter)</div>
+        <input class="modal-input" type="password" id="new-password" placeholder="••••••••">
+      </div>
+      <div id="modal-error" style="font-size:12px;color:var(--red);display:none;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-tambah')">Batal</button>
+      <button class="btn-primary" onclick="submitTambahAdmin()">+ Tambah</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL INFO -->
+<div class="modal-overlay" id="modal-info" onclick="closeModalOutside(event,'modal-info')">
+  <div class="modal">
+    <div class="modal-header" id="info-title">Info</div>
+    <div class="modal-body" id="info-desc" style="font-size:13px; line-height:1.5;"></div>
+    <div class="modal-footer">
+      <button class="btn-cancel" onclick="closeModal('modal-info')">Tutup</button>
+    </div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">Tables</div>
+    <div class="sidebar-item active" id="tab-sensor_data" onclick="setTable('sensor_data')">
+      <span class="icon">-</span> sensor_data
+      <span class="badge" id="badge-sensor_data">...</span>
+    </div>
+    <div class="sidebar-item" id="tab-attack_log" onclick="setTable('attack_log')">
+      <span class="icon">-</span> attack_log
+      <span class="badge" id="badge-attack_log">...</span>
+    </div>
+    <div class="sidebar-item" id="tab-admin_users" onclick="setTable('admin_users')">
+      <span class="icon">-</span> admin_users
+      <span class="badge" id="badge-admin_users">...</span>
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Manajemen</div>
+    <div class="sidebar-item" onclick="openModal('modal-tambah')" style="color:var(--green);">
+      <span class="icon">+</span> Tambah Admin
+    </div>
+    <div class="sidebar-divider"></div>
+    <div class="sidebar-section">Info</div>
+    <div class="sidebar-item" style="cursor:pointer;" onclick="openInfoModal('sqlite')">
+      <span class="icon" style="font-size:12px">*</span>
+      <span style="font-size:12px;">SQLite 3</span>
+    </div>
+    <div class="sidebar-item" style="cursor:pointer;" onclick="openInfoModal('aes')">
+      <span class="icon" style="font-size:12px">*</span>
+      <span style="font-size:12px;color:var(--muted)">AES-256-CBC</span>
+    </div>
+    <div class="sidebar-item" style="cursor:pointer;" onclick="openInfoModal('hmac')">
+      <span class="icon" style="font-size:12px">*</span>
+      <span style="font-size:12px;color:var(--muted)">HMAC-SHA256</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="toolbar">
+      <div>
+        <div class="table-title" id="table-title">sensor_data</div>
+        <div class="row-total" id="row-total">Memuat...</div>
+      </div>
+      <div class="search-wrap">
+        <span class="search-icon">?</span>
+        <input type="text" id="search-input" placeholder="Cari di semua kolom..." oninput="onSearch()">
+      </div>
+    </div>
+
+    <div class="table-wrap" id="table-wrap">
+      <div class="loading"><div class="spinner"></div> Memuat data...</div>
+    </div>
+
+    <div class="pagination">
+      <div class="info" id="pag-info">—</div>
+      <div class="per-page-wrap">
+        Rows:
+        <select id="per-page-sel" onchange="onPerPageChange()">
+          <option value="10">10</option>
+          <option value="20" selected>20</option>
+          <option value="50">50</option>
+          <option value="100">100</option>
+        </select>
+      </div>
+      <button class="page-btn" id="btn-first" onclick="goPage(1)">&lt;&lt;</button>
+      <button class="page-btn" id="btn-prev" onclick="goPage(state.page - 1)">&lt;</button>
+      <input type="number" id="page-input" min="1" value="1" onchange="goPage(parseInt(this.value))">
+      <span style="font-size:12px;color:var(--muted)">/ <span id="total-pages">1</span></span>
+      <button class="page-btn" id="btn-next" onclick="goPage(state.page + 1)">&gt;</button>
+      <button class="page-btn" id="btn-last" onclick="goPage(state.totalPages)">&gt;&gt;</button>
+    </div>
+  </div>
+</div>
+
+<!-- DETAIL PANEL -->
+<div class="detail-overlay" id="detail-overlay" onclick="closeDetail(event)">
+  <div class="detail-panel" id="detail-panel">
+    <div class="detail-header">
+      <span>[=] Detail Baris</span>
+      <span id="detail-row-id" style="font-size:12px;color:var(--muted);font-family:var(--mono);"></span>
+      <button class="close-btn" onclick="closeDetailPanel()">X Tutup</button>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<script>
+const CIPHER_COLS = ['iv_hex','ciphertext_hex','hmac_tag_hex','hmac_dihitung_hex','payload_base64'];
+const PLAIN_COLS  = ['plaintext_json'];
+const STATUS_OK   = ['VERIFIED','verified', 'Terverifikasi', 'terverifikasi'];
+
+const state = {
+  table: 'sensor_data',
+  page: 1,
+  perPage: 20,
+  totalPages: 1,
+  total: 0,
+  search: '',
+  searchTimer: null,
+  columns: [],
+  rows: [],
+  selectedIdx: null
+};
+
+async function fetchTableCounts() {
+  for (const t of ['sensor_data','attack_log','admin_users']) {
+    const r = await fetch(`/api/db-viewer/${t}?page=1&per_page=1`);
+    const d = await r.json();
+    const el = document.getElementById(`badge-${t}`);
+    if (el) el.textContent = d.total ?? '?';
+  }
+}
+
+async function loadData() {
+  document.getElementById('table-wrap').innerHTML =
+    '<div class="loading"><div class="spinner"></div> Memuat data...</div>';
+
+  const url = `/api/db-viewer/${state.table}?page=${state.page}&per_page=${state.perPage}&search=${encodeURIComponent(state.search)}`;
+  const r = await fetch(url);
+  const d = await r.json();
+
+  state.columns = d.columns;
+  state.rows = d.rows;
+  state.total = d.total;
+  state.totalPages = d.total_pages;
+  state.selectedIdx = null;
+
+  renderTable();
+  updatePagination();
+}
+
+function renderTable() {
+  const wrap = document.getElementById('table-wrap');
+  if (!state.rows.length) {
+    wrap.innerHTML = '<div class="empty"><div style="font-size:32px">(Empty)</div><div>Tidak ada data</div></div>';
+    document.getElementById('row-total').textContent = '0 baris';
+    return;
+  }
+
+  document.getElementById('table-title').textContent = state.table;
+  document.getElementById('row-total').textContent =
+    `${state.total.toLocaleString()} baris total`;
+
+  let html = '<table><thead><tr>';
+  html += '<th style="width:36px;">#</th>';
+  for (const col of state.columns) {
+    html += `<th class="sortable">${col}</th>`;
+  }
+  html += '</tr></thead><tbody>';
+
+  state.rows.forEach((row, i) => {
+    const globalIdx = (state.page - 1) * state.perPage + i + 1;
+    const sel = state.selectedIdx === i ? ' selected' : '';
+    html += `<tr class="${sel}" onclick="selectRow(${i})">`;
+    html += `<td style="color:var(--muted);text-align:right;padding-right:10px;font-size:11px">${globalIdx}</td>`;
+
+    for (const col of state.columns) {
+      const val = row[col];
+      html += `<td ${cellAttr(col, val)}>${cellDisplay(col, val)}</td>`;
+    }
+    html += '</tr>';
+  });
+
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+}
+
+function cellAttr(col, val) {
+  if (val === null || val === undefined) return 'class="null"';
+  if (CIPHER_COLS.includes(col)) return 'class="mono"';
+  if (PLAIN_COLS.includes(col)) return 'class="mono-plain"';
+  return '';
+}
+
+function cellDisplay(col, val) {
+  if (val === null || val === undefined) return 'NULL';
+  const s = String(val);
+
+  if (col === 'status') {
+    if (STATUS_OK.includes(s)) return `<span class="badge-ok">${s}</span>`;
+    if (s.toLowerCase().includes('replay')) return `<span class="badge-warn">${s}</span>`;
+    return `<span class="badge-err">${s}</span>`;
+  }
+  if (col === 'jenis_serangan') return `<span class="badge-err">${s}</span>`;
+  if (col === 'id' && state.table === 'admin_users') {
+    return `<span style="color:var(--muted);font-family:var(--mono)">${s}</span>
+            <button class="btn-danger" onclick="event.stopPropagation();hapusAdmin(${s})">hapus</button>`;
+  }
+  if (col === 'id') return `<span style="color:var(--muted);font-family:var(--mono)">${s}</span>`;
+
+  return escHtml(s);
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function selectRow(i) {
+  state.selectedIdx = i;
+  renderTable();
+  openDetail(i);
+}
+
+function openDetail(i) {
+  const row = state.rows[i];
+  document.getElementById('detail-row-id').textContent = `id = ${row['id'] ?? '?'}`;
+  const body = document.getElementById('detail-body');
+  let html = '';
+
+  for (const col of state.columns) {
+    const val = row[col];
+    const isNull = val === null || val === undefined;
+    const s = isNull ? 'NULL' : String(val);
+
+    let valClass = isNull ? 'null' : '';
+    if (CIPHER_COLS.includes(col)) valClass = 'mono';
+    if (PLAIN_COLS.includes(col)) valClass = 'mono-plain';
+
+    let badge = '';
+    if (col === 'status' && !isNull) {
+      badge = STATUS_OK.includes(s)
+        ? `<span class="badge-ok">${escHtml(s)}</span>`
+        : s.toLowerCase().includes('replay')
+          ? `<span class="badge-warn">${escHtml(s)}</span>`
+          : `<span class="badge-err">${escHtml(s)}</span>`;
+    }
+
+    const displayVal = badge || escHtml(s);
+    const copyBtnId = `copy-${col}`;
+
+    html += `<div class="detail-field">
+      <div class="field-label">
+        ${escHtml(col)}
+        ${!isNull ? `<button class="copy-btn" id="${copyBtnId}" onclick="copyField('${copyBtnId}', ${JSON.stringify(s)})">copy</button>` : ''}
+      </div>
+      <div class="field-val ${valClass}">${displayVal}</div>
+    </div>`;
+  }
+
+  body.innerHTML = html;
+  document.getElementById('detail-overlay').classList.add('show');
+}
+
+function copyField(btnId, val) {
+  navigator.clipboard.writeText(val).then(() => {
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.textContent = 'copied!'; setTimeout(() => btn.textContent = 'copy', 1500); }
+  });
+}
+
+function closeDetail(e) {
+  if (e.target === document.getElementById('detail-overlay')) closeDetailPanel();
+}
+function closeDetailPanel() {
+  document.getElementById('detail-overlay').classList.remove('show');
+  state.selectedIdx = null;
+  renderTable();
+}
+
+function updatePagination() {
+  document.getElementById('pag-info').textContent =
+    `Menampilkan ${Math.min((state.page-1)*state.perPage+1, state.total)}–${Math.min(state.page*state.perPage, state.total)} dari ${state.total.toLocaleString()} baris`;
+  document.getElementById('total-pages').textContent = state.totalPages;
+  document.getElementById('page-input').value = state.page;
+  document.getElementById('page-input').max = state.totalPages;
+  document.getElementById('btn-first').disabled = state.page <= 1;
+  document.getElementById('btn-prev').disabled  = state.page <= 1;
+  document.getElementById('btn-next').disabled  = state.page >= state.totalPages;
+  document.getElementById('btn-last').disabled  = state.page >= state.totalPages;
+}
+
+function setTable(t) {
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  document.getElementById(`tab-${t}`).classList.add('active');
+  state.table = t;
+  state.page = 1;
+  state.search = '';
+  document.getElementById('search-input').value = '';
+  closeDetailPanel();
+  loadData();
+}
+
+function goPage(p) {
+  p = Math.max(1, Math.min(p, state.totalPages));
+  if (p === state.page) return;
+  state.page = p;
+  loadData();
+}
+
+function onPerPageChange() {
+  state.perPage = parseInt(document.getElementById('per-page-sel').value);
+  state.page = 1;
+  loadData();
+}
+
+function onSearch() {
+  clearTimeout(state.searchTimer);
+  state.searchTimer = setTimeout(() => {
+    state.search = document.getElementById('search-input').value.trim();
+    state.page = 1;
+    loadData();
+  }, 350);
+}
+
+fetchTableCounts();
+loadData();
+
+// ===== ADMIN FUNCTIONS =====
+function openModal(id) { document.getElementById(id).classList.add('show'); }
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModalOutside(e, id) { if(e.target.id===id) closeModal(id); }
+
+function showToast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = (type==='ok' ? '✓ ' : '✗ ') + msg;
+  t.className = 'toast show ' + type;
+  setTimeout(() => t.className = 'toast', 3000);
+}
+
+async function submitTambahAdmin() {
+  const username = document.getElementById('new-username').value.trim();
+  const password = document.getElementById('new-password').value;
+  const errEl   = document.getElementById('modal-error');
+  errEl.style.display = 'none';
+
+  if (!username || !password) { errEl.textContent='Semua field wajib diisi.'; errEl.style.display='block'; return; }
+  if (password.length < 6)    { errEl.textContent='Password minimal 6 karakter.'; errEl.style.display='block'; return; }
+
+  const r = await fetch('/api/db-viewer/admin/tambah', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({username, password})
+  });
+  const d = await r.json();
+
+  if (d.status === 'success') {
+    closeModal('modal-tambah');
+    document.getElementById('new-username').value = '';
+    document.getElementById('new-password').value = '';
+    showToast(d.pesan, 'ok');
+    fetchTableCounts();
+    if (state.table === 'admin_users') loadData();
+  } else {
+    errEl.textContent = d.pesan; errEl.style.display = 'block';
+  }
+}
+
+async function hapusAdmin(id) {
+  if (!confirm('Hapus admin ini?')) return;
+  const r = await fetch('/api/db-viewer/admin/hapus/' + id, {method:'DELETE'});
+  const d = await r.json();
+  if (d.status === 'success') {
+    showToast(d.pesan, 'ok');
+    fetchTableCounts();
+    loadData();
+  } else {
+    showToast(d.pesan, 'err');
+  }
+}
+
+function openInfoModal(type) {
+  let title = '', desc = '';
+  if (type === 'sqlite') {
+    title = 'SQLite 3';
+    desc = 'Nama file DB: mikroklimat.db<br>Daftar tabel: sensor_data, attack_log, admin_users.<br>Database relasional yang ringan dan tersimpan dalam satu file.';
+  } else if (type === 'aes') {
+    title = 'AES-256-CBC';
+    desc = 'Algoritma enkripsi simetris dengan panjang kunci 256-bit.<br>Menggunakan mode CBC (Cipher Block Chaining).<br>Terdapat penggunaan random IV (Initialization Vector) yang unik untuk setiap pengiriman data.';
+  } else if (type === 'hmac') {
+    title = 'HMAC-SHA256';
+    desc = 'Fungsi hash untuk autentikasi pesan dengan tag berukuran 32-byte.<br>Menggunakan paradigma Encrypt-then-MAC.<br>Input HMAC adalah gabungan dari IV + Ciphertext.';
+  }
+  document.getElementById('info-title').textContent = title;
+  document.getElementById('info-desc').innerHTML = desc;
+  openModal('modal-info');
+}
+
+function toggleAdminDropdown() {
+  const dd = document.getElementById('admin-dropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+// Close dropdown if clicked outside
+document.addEventListener('click', function(e) {
+  const ui = document.querySelector('.user-info');
+  if (ui && !ui.contains(e.target)) {
+    const dd = document.getElementById('admin-dropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function confirmLogout() {
+  if (confirm("Apakah Anda yakin ingin logout?")) {
+    window.location.href = '/logout';
+  }
+}
+
+</script>
