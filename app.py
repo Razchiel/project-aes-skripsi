@@ -73,8 +73,21 @@ def terima_data_esp32():
         jenis_serangan = "Data Tampering" if "HMAC Mismatch" in hasil else \
                          "Replay Attack" if "Replay" in hasil else "Data Corruption"
         
+        # Hitung avalanche effect (M3) hanya untuk kasus Data Tampering
+        avalanche_m3 = None
+        if "HMAC Mismatch" in hasil and crypto_info.get('hmac_tag_hex') and crypto_info.get('hmac_dihitung_hex'):
+            a = crypto_info['hmac_tag_hex']
+            b = crypto_info['hmac_dihitung_hex']
+            if len(a) == len(b) and len(a) > 0:
+                diff_bits = 0
+                for i in range(0, len(a), 2):
+                    xor = int(a[i:i+2], 16) ^ int(b[i:i+2], 16)
+                    diff_bits += bin(xor).count('1')
+                total_bits = (len(a) // 2) * 8
+                avalanche_m3 = round((diff_bits / total_bits) * 100, 2) if total_bits > 0 else 0.0
+        
         # 3. Catat sebagai serangan!
-        database.catat_log_serangan(jenis_serangan, hasil, status_integritas, crypto_info)
+        database.catat_log_serangan(jenis_serangan, hasil, status_integritas, crypto_info, avalanche_persen=avalanche_m3)
         
         return jsonify({
             "status": "rejected", 
@@ -176,7 +189,20 @@ def simulate_attack():
     sukses, hasil, waktu_ms, status_integritas, crypto_info = crypto.proses_payload_esp32(payload_tampered)
     
     if not sukses:
-        database.catat_log_serangan("Data Tampering (Simulasi)", hasil, status_integritas, crypto_info)
+        # Hitung avalanche M3 dari perbandingan HMAC
+        avalanche_m3 = None
+        if crypto_info.get('hmac_tag_hex') and crypto_info.get('hmac_dihitung_hex'):
+            a = crypto_info['hmac_tag_hex']
+            b = crypto_info['hmac_dihitung_hex']
+            if len(a) == len(b) and len(a) > 0:
+                diff_bits = 0
+                for i in range(0, len(a), 2):
+                    xor = int(a[i:i+2], 16) ^ int(b[i:i+2], 16)
+                    diff_bits += bin(xor).count('1')
+                total_bits = (len(a) // 2) * 8
+                avalanche_m3 = round((diff_bits / total_bits) * 100, 2) if total_bits > 0 else 0.0
+        
+        database.catat_log_serangan("Data Tampering (Simulasi)", hasil, status_integritas, crypto_info, avalanche_persen=avalanche_m3)
         return jsonify({
             "status": "rejected",
             "pesan": "Serangan berhasil dideteksi! HMAC tidak cocok.",
@@ -208,7 +234,7 @@ def simulate_replay():
     sukses, hasil, waktu_ms, status_integritas, crypto_info = crypto.proses_payload_esp32(payload_backdated)
     
     if not sukses:
-        database.catat_log_serangan("Replay Attack (Simulasi)", hasil, status_integritas, crypto_info)
+        database.catat_log_serangan("Replay Attack (Simulasi)", hasil, status_integritas, crypto_info, avalanche_persen=None)
         return jsonify({
             "status": "rejected",
             "pesan": "Replay attack berhasil dideteksi! Paket melebihi window 60 detik.",

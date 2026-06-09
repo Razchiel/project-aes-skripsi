@@ -154,7 +154,7 @@ function renderSensorTable() {
     const displayData = data.slice(start, end);
 
     if (displayData.length === 0) {
-        els.sensorTbody.innerHTML = '<tr class="empty-row"><td colspan="9">Belum ada data sensor — gunakan tombol simulasi di panel kanan</td></tr>';
+        els.sensorTbody.innerHTML = '<tr class="empty-row"><td colspan="8">Belum ada data sensor — gunakan tombol simulasi di panel kanan</td></tr>';
         if ($('pagination-sensor')) $('pagination-sensor').innerHTML = '';
         return;
     }
@@ -170,7 +170,6 @@ function renderSensorTable() {
             <td class="mono">${formatNum(row.waktu_dekripsi_ms, 2)}</td>
             <td class="mono">${formatNum(row.total_waktu_ms, 2)}</td>
             <td class="mono">${row.overhead_bytes != null ? row.overhead_bytes : '--'}</td>
-            <td class="mono">${row.avalanche_persen != null ? formatNum(row.avalanche_persen, 2) : '0.00'}</td>
             <td>${getStatusBadge(row.status)}</td>
         </tr>
     `}).join('');
@@ -199,7 +198,7 @@ function renderAttackTable() {
     const displayLogs = logs.slice(start, end);
 
     if (displayLogs.length === 0) {
-        els.attackTbody.innerHTML = '<tr class="empty-row"><td colspan="4">Tidak ada serangan terdeteksi — sistem aman</td></tr>';
+        els.attackTbody.innerHTML = '<tr class="empty-row"><td colspan="5">Tidak ada serangan terdeteksi — sistem aman</td></tr>';
         if ($('pagination-attack')) $('pagination-attack').innerHTML = '';
         return;
     }
@@ -211,6 +210,7 @@ function renderAttackTable() {
             <td>${formatTimestamp(log.timestamp)}</td>
             <td>${escapeHtml(log.jenis_serangan)}</td>
             <td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis;cursor:default;" title="${escapeHtml(log.detail)}">${escapeHtml(log.detail ? (log.detail.length > 60 ? log.detail.slice(0, 60) + '...' : log.detail) : '')}</td>
+            <td class="mono">${log.avalanche_persen != null ? formatNum(log.avalanche_persen, 2) + '%' : '--'}</td>
             <td>${getAttackBadge(log.status)}</td>
         </tr>
     `}).join('');

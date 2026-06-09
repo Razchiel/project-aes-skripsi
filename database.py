@@ -51,6 +51,7 @@ def _migrasi_kolom(cursor):
         "ALTER TABLE attack_log ADD COLUMN payload_base64 TEXT",
         "ALTER TABLE attack_log ADD COLUMN plaintext_json TEXT",
         "ALTER TABLE attack_log ADD COLUMN delta_ms INTEGER",
+        "ALTER TABLE attack_log ADD COLUMN avalanche_persen REAL",
         # Kolom metrik skripsi M1 & M2
         "ALTER TABLE sensor_data ADD COLUMN waktu_enkripsi_ms REAL",
         "ALTER TABLE sensor_data ADD COLUMN total_waktu_ms REAL",
@@ -81,7 +82,7 @@ def simpan_data_sensor(suhu, kelembapan, waktu_dekripsi_ms, status, crypto_info=
     conn.commit()
     conn.close()
 
-def catat_log_serangan(jenis_serangan, detail, status, crypto_info=None):
+def catat_log_serangan(jenis_serangan, detail, status, crypto_info=None, avalanche_persen=None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -90,14 +91,14 @@ def catat_log_serangan(jenis_serangan, detail, status, crypto_info=None):
         INSERT INTO attack_log
             (timestamp, jenis_serangan, detail, status,
              iv_hex, ciphertext_hex, hmac_tag_hex, hmac_dihitung_hex,
-             payload_base64, plaintext_json, delta_ms)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             payload_base64, plaintext_json, delta_ms, avalanche_persen)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         waktu_sekarang, jenis_serangan, detail, status,
         ci.get('iv_hex'), ci.get('ciphertext_hex'),
         ci.get('hmac_tag_hex'), ci.get('hmac_dihitung_hex'),
         ci.get('payload_base64'), ci.get('plaintext_json'),
-        ci.get('delta_ms')
+        ci.get('delta_ms'), avalanche_persen
     ))
     conn.commit()
     conn.close()

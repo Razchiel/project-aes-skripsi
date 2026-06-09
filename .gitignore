@@ -4,4 +4,7 @@ __pycache__/
 *.pyo
 .env
 *.db-journal
-hasil_pengujian.txt
+penjabaran_algoritma_aes_hmac.md
+bahan_diskusi_proposal_ta.md
+rumus kriptografi.tex
+review_project.md
