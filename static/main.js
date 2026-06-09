@@ -20,11 +20,15 @@ const els = {
     kelembapan: $('kelembapan-terakhir'),
     totalVerified: $('total-verified'),
     totalAttacks: $('total-attacks'),
+    successRate: $('success-rate'),
+    avgOverhead: $('avg-overhead'),
     sensorTbody: $('sensor-tbody'),
     attackTbody: $('attack-tbody'),
     avgDecrypt: $('avg-decrypt'),
     minDecrypt: $('min-decrypt'),
     maxDecrypt: $('max-decrypt'),
+    avgEncrypt: $('avg-encrypt'),
+    avgTotal: $('avg-total'),
     totalProcessed: $('total-processed'),
     btnSimulate: $('btn-simulate'),
     btnAttack: $('btn-attack'),
@@ -150,7 +154,7 @@ function renderSensorTable() {
     const displayData = data.slice(start, end);
 
     if (displayData.length === 0) {
-        els.sensorTbody.innerHTML = '<tr class="empty-row"><td colspan="5">Belum ada data sensor — gunakan tombol simulasi di panel kanan</td></tr>';
+        els.sensorTbody.innerHTML = '<tr class="empty-row"><td colspan="9">Belum ada data sensor — gunakan tombol simulasi di panel kanan</td></tr>';
         if ($('pagination-sensor')) $('pagination-sensor').innerHTML = '';
         return;
     }
@@ -162,7 +166,10 @@ function renderSensorTable() {
             <td>${formatTimestamp(row.timestamp)}</td>
             <td class="mono">${formatNum(row.suhu, 1)}</td>
             <td class="mono">${formatNum(row.kelembapan, 1)}</td>
+            <td class="mono">${formatNum(row.waktu_enkripsi_ms, 2)}</td>
             <td class="mono">${formatNum(row.waktu_dekripsi_ms, 2)}</td>
+            <td class="mono">${formatNum(row.total_waktu_ms, 2)}</td>
+            <td class="mono">${row.overhead_bytes != null ? row.overhead_bytes : '--'}</td>
             <td class="mono">${row.avalanche_persen != null ? formatNum(row.avalanche_persen, 2) : '0.00'}</td>
             <td>${getStatusBadge(row.status)}</td>
         </tr>
@@ -254,9 +261,13 @@ function renderPagination(totalItems, currentPage, totalPages, containerId, onPa
 function updateMetrics(stats) {
     els.totalVerified.textContent = stats.total_paket;
     els.totalAttacks.textContent = stats.total_serangan;
+    if (els.successRate) els.successRate.textContent = formatNum(stats.success_rate, 1);
+    if (els.avgOverhead) els.avgOverhead.textContent = formatNum(stats.rata_rata_overhead, 0);
     els.avgDecrypt.textContent = formatNum(stats.rata_rata_dekripsi, 2) + ' ms';
     els.minDecrypt.textContent = formatNum(stats.min_dekripsi, 2) + ' ms';
     els.maxDecrypt.textContent = formatNum(stats.max_dekripsi, 2) + ' ms';
+    if (els.avgEncrypt) els.avgEncrypt.textContent = formatNum(stats.rata_rata_enkripsi, 2) + ' ms';
+    if (els.avgTotal) els.avgTotal.textContent = formatNum(stats.rata_rata_total, 2) + ' ms';
     els.totalProcessed.textContent = stats.total_paket;
     els.attackBadge.textContent = stats.total_serangan + ' insiden';
 }
@@ -311,7 +322,7 @@ async function simulateNormal() {
 
         if (data.status === 'success') {
             showSimResult('success',
-                `✓ Data berhasil dikirim — Suhu: ${data.suhu}°C, Kelembapan: ${data.kelembapan}% | Enkripsi: ${data.waktu_enkripsi_ms}ms, Dekripsi: ${data.waktu_dekripsi_ms}ms`);
+                `✓ Data berhasil dikirim — Suhu: ${data.suhu}°C, Kelembapan: ${data.kelembapan}% | Enkripsi: ${data.waktu_enkripsi_ms}ms, Dekripsi: ${data.waktu_dekripsi_ms}ms, Total: ${data.total_waktu_ms}ms | Overhead: ${data.overhead_bytes} Bytes`);
         } else {
             showSimResult('error', `✗ Gagal: ${data.detail || 'Unknown error'}`);
         }
@@ -536,10 +547,16 @@ function showVerifiedModal(data) {
         </div>
 
         <div class="modal-section">
-            <div class="modal-section-title">Performa</div>
+            <div class="modal-section-title">Performa — Metrik Waktu Komputasi (M1) & Overhead (M2)</div>
             <div class="detail-grid">
+                <span class="detail-label">Waktu Enkripsi</span>
+                <span class="detail-value highlight">${formatNum(data.waktu_enkripsi_ms, 4)} ms</span>
                 <span class="detail-label">Waktu Dekripsi</span>
                 <span class="detail-value highlight">${formatNum(data.waktu_dekripsi_ms, 4)} ms</span>
+                <span class="detail-label">Total Waktu</span>
+                <span class="detail-value highlight">${formatNum(data.total_waktu_ms, 4)} ms</span>
+                <span class="detail-label">Overhead Data</span>
+                <span class="detail-value highlight">${data.overhead_bytes != null ? data.overhead_bytes + ' Bytes' : '--'}</span>
             </div>
         </div>
     `;

@@ -51,6 +51,10 @@ def _migrasi_kolom(cursor):
         "ALTER TABLE attack_log ADD COLUMN payload_base64 TEXT",
         "ALTER TABLE attack_log ADD COLUMN plaintext_json TEXT",
         "ALTER TABLE attack_log ADD COLUMN delta_ms INTEGER",
+        # Kolom metrik skripsi M1 & M2
+        "ALTER TABLE sensor_data ADD COLUMN waktu_enkripsi_ms REAL",
+        "ALTER TABLE sensor_data ADD COLUMN total_waktu_ms REAL",
+        "ALTER TABLE sensor_data ADD COLUMN overhead_bytes INTEGER",
     ]
     for sql in migrations:
         try:
@@ -58,7 +62,8 @@ def _migrasi_kolom(cursor):
         except Exception:
             pass
 
-def simpan_data_sensor(suhu, kelembapan, waktu_dekripsi_ms, status, crypto_info=None):
+def simpan_data_sensor(suhu, kelembapan, waktu_dekripsi_ms, status, crypto_info=None,
+                       waktu_enkripsi_ms=None, total_waktu_ms=None, overhead_bytes=None):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     waktu_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -66,11 +71,13 @@ def simpan_data_sensor(suhu, kelembapan, waktu_dekripsi_ms, status, crypto_info=
     cursor.execute('''
         INSERT INTO sensor_data
             (timestamp, suhu, kelembapan, waktu_dekripsi_ms, status,
-             iv_hex, ciphertext_hex, hmac_tag_hex, payload_base64, plaintext_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             iv_hex, ciphertext_hex, hmac_tag_hex, payload_base64, plaintext_json,
+             waktu_enkripsi_ms, total_waktu_ms, overhead_bytes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (waktu_sekarang, suhu, kelembapan, waktu_dekripsi_ms, status,
           ci.get('iv_hex'), ci.get('ciphertext_hex'), ci.get('hmac_tag_hex'),
-          ci.get('payload_base64'), ci.get('plaintext_json')))
+          ci.get('payload_base64'), ci.get('plaintext_json'),
+          waktu_enkripsi_ms, total_waktu_ms, overhead_bytes))
     conn.commit()
     conn.close()
 
@@ -121,13 +128,21 @@ def ambil_log_serangan(limit=200):
 
 
 def ambil_statistik():
-    """Menghitung statistik performa kriptografi untuk dashboard."""
+    """Menghitung statistik performa kriptografi untuk dashboard.
+    
+    Metrik yang dihitung:
+      M1 — Waktu Komputasi (rata-rata enkripsi, dekripsi, total)
+      M2 — Overhead Ukuran Data (rata-rata overhead bytes)
+      M4 — Success Rate (paket terverifikasi / total seluruh paket)
+    """
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
     
-    # Metrik waktu dekripsi dari data sensor yang berhasil
+    # Metrik waktu dari data sensor yang berhasil (M1 & M2)
     cursor.execute('''
-        SELECT COUNT(*), AVG(waktu_dekripsi_ms), MIN(waktu_dekripsi_ms), MAX(waktu_dekripsi_ms) 
+        SELECT COUNT(*),
+               AVG(waktu_dekripsi_ms), MIN(waktu_dekripsi_ms), MAX(waktu_dekripsi_ms),
+               AVG(waktu_enkripsi_ms), AVG(total_waktu_ms), AVG(overhead_bytes)
         FROM sensor_data
     ''')
     row = cursor.fetchone()
@@ -135,10 +150,20 @@ def ambil_statistik():
     avg_dekripsi = round(row[1], 2) if row[1] else 0
     min_dekripsi = round(row[2], 2) if row[2] else 0
     max_dekripsi = round(row[3], 2) if row[3] else 0
+    avg_enkripsi = round(row[4], 2) if row[4] else 0
+    avg_total    = round(row[5], 2) if row[5] else 0
+    avg_overhead = round(row[6], 1) if row[6] else 0
     
     # Total serangan yang tercatat
     cursor.execute('SELECT COUNT(*) FROM attack_log')
     total_serangan = cursor.fetchone()[0] or 0
+    
+    # M4 — Success Rate (guard division by zero)
+    total_semua_paket = total_paket + total_serangan
+    if total_semua_paket > 0:
+        success_rate = round((total_paket / total_semua_paket) * 100, 1)
+    else:
+        success_rate = 0.0
     
     conn.close()
     
@@ -147,7 +172,11 @@ def ambil_statistik():
         "total_serangan": total_serangan,
         "rata_rata_dekripsi": avg_dekripsi,
         "min_dekripsi": min_dekripsi,
-        "max_dekripsi": max_dekripsi
+        "max_dekripsi": max_dekripsi,
+        "rata_rata_enkripsi": avg_enkripsi,
+        "rata_rata_total": avg_total,
+        "rata_rata_overhead": avg_overhead,
+        "success_rate": success_rate
     }
 
 def ambil_data_chart_gabungan(limit=50):

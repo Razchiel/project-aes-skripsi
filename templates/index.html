@@ -50,7 +50,7 @@
             <span class="security-bar-sub" id="status-desc">Semua data sensor terverifikasi</span>
         </div>
 
-        <!-- Stats Overview (4 Cards) -->
+        <!-- Stats Overview (6 Cards) -->
         <section class="stats-grid" aria-label="Ringkasan statistik">
 
             <div class="stat-card temp" id="card-suhu">
@@ -69,6 +69,16 @@
                     <div class="stat-value-group">
                         <span class="stat-value" id="kelembapan-terakhir">--</span>
                         <span class="stat-unit">%RH</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="stat-card success-rate" id="card-success-rate">
+                <div class="stat-content">
+                    <span class="stat-label">Success Rate (M4)</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="success-rate">0</span>
+                        <span class="stat-unit">%</span>
                     </div>
                 </div>
             </div>
@@ -93,6 +103,16 @@
                 </div>
             </div>
 
+            <div class="stat-card overhead" id="card-overhead">
+                <div class="stat-content">
+                    <span class="stat-label">Rata-rata Overhead (M2)</span>
+                    <div class="stat-value-group">
+                        <span class="stat-value" id="avg-overhead">0</span>
+                        <span class="stat-unit">Bytes</span>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <!-- Main Content: Data Table + Metrics -->
@@ -111,14 +131,17 @@
                                 <th>Waktu</th>
                                 <th>Suhu (°C)</th>
                                 <th>Kelembapan (%)</th>
+                                <th>Enkripsi (ms)</th>
                                 <th>Dekripsi (ms)</th>
+                                <th>Total (ms)</th>
+                                <th>Overhead (B)</th>
                                 <th>Avalanche (%)</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
                         <tbody id="sensor-tbody">
                             <tr class="empty-row">
-                                <td colspan="5">Memuat data sensor...</td>
+                                <td colspan="9">Memuat data sensor...</td>
                             </tr>
                         </tbody>
                     </table>
@@ -134,15 +157,23 @@
 
                 <div class="metrics-list">
                     <div class="metric-item">
+                        <span class="metric-label">Rata-rata Enkripsi</span>
+                        <span class="metric-value" id="avg-encrypt">-- ms</span>
+                    </div>
+                    <div class="metric-item">
                         <span class="metric-label">Rata-rata Dekripsi</span>
                         <span class="metric-value" id="avg-decrypt">-- ms</span>
                     </div>
                     <div class="metric-item">
-                        <span class="metric-label">Minimum</span>
+                        <span class="metric-label">Rata-rata Total</span>
+                        <span class="metric-value" id="avg-total">-- ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Min Dekripsi</span>
                         <span class="metric-value" id="min-decrypt">-- ms</span>
                     </div>
                     <div class="metric-item">
-                        <span class="metric-label">Maksimum</span>
+                        <span class="metric-label">Maks Dekripsi</span>
                         <span class="metric-value" id="max-decrypt">-- ms</span>
                     </div>
                     <div class="metric-item">

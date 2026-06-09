@@ -25,12 +25,15 @@ _last_valid_payload = None
 def terima_data_esp32():
     # Mengambil payload Base64 yang dikirim ESP32
     # Format JSON yang diharapkan dari ESP32: {"payload": "base64_string_disini"}
+    # Opsional: {"payload": "...", "waktu_enkripsi_ms": 1.23}
     data_masuk = request.get_json()
     
     if not data_masuk or 'payload' not in data_masuk:
         return jsonify({"status": "error", "pesan": "Payload tidak ditemukan!"}), 400
     
     payload_base64 = data_masuk['payload']
+    # Opsi B: ESP32 mengirim waktu enkripsi (fallback None jika belum ada)
+    waktu_enkripsi_esp = data_masuk.get('waktu_enkripsi_ms', None)
     
     # 1. Lakukan proses verifikasi HMAC & Dekripsi AES
     sukses, hasil, waktu_ms, status_integritas, crypto_info = crypto.proses_payload_esp32(payload_base64)
@@ -41,8 +44,22 @@ def terima_data_esp32():
         suhu = hasil.get('t', 0.0)
         kelembapan = hasil.get('h', 0.0)
         
+        # Hitung M1: total waktu komputasi
+        total_waktu = None
+        if waktu_enkripsi_esp is not None:
+            total_waktu = waktu_enkripsi_esp + waktu_ms
+        
+        # Hitung M2: overhead ukuran data (byte-accurate)
+        plaintext_json_str = crypto_info.get('plaintext_json', '')
+        overhead = len(payload_base64.encode('utf-8')) - len(plaintext_json_str.encode('utf-8'))
+        
         # 2. Simpan ke database
-        database.simpan_data_sensor(suhu, kelembapan, waktu_ms, status_integritas, crypto_info)
+        database.simpan_data_sensor(
+            suhu, kelembapan, waktu_ms, status_integritas, crypto_info,
+            waktu_enkripsi_ms=waktu_enkripsi_esp,
+            total_waktu_ms=total_waktu,
+            overhead_bytes=overhead
+        )
         
         return jsonify({
             "status": "success", 
@@ -115,13 +132,27 @@ def simulate():
     sukses, hasil, waktu_dekripsi, status_integritas, crypto_info = crypto.proses_payload_esp32(payload_base64)
     
     if sukses:
-        database.simpan_data_sensor(hasil['t'], hasil['h'], waktu_dekripsi, status_integritas, crypto_info)
+        # M1: total waktu komputasi
+        total_waktu = waktu_enkripsi + waktu_dekripsi
+        
+        # M2: overhead ukuran data (byte-accurate)
+        plaintext_json_str = crypto_info.get('plaintext_json', '')
+        overhead = len(payload_base64.encode('utf-8')) - len(plaintext_json_str.encode('utf-8'))
+        
+        database.simpan_data_sensor(
+            hasil['t'], hasil['h'], waktu_dekripsi, status_integritas, crypto_info,
+            waktu_enkripsi_ms=waktu_enkripsi,
+            total_waktu_ms=total_waktu,
+            overhead_bytes=overhead
+        )
         return jsonify({
             "status": "success",
             "suhu": hasil['t'],
             "kelembapan": hasil['h'],
             "waktu_enkripsi_ms": round(waktu_enkripsi, 2),
-            "waktu_dekripsi_ms": round(waktu_dekripsi, 2)
+            "waktu_dekripsi_ms": round(waktu_dekripsi, 2),
+            "total_waktu_ms": round(total_waktu, 2),
+            "overhead_bytes": overhead
         }), 200
     
     return jsonify({"status": "error", "detail": hasil}), 500
@@ -203,7 +234,9 @@ def export_csv():
     
     # === Bagian 1: Data Sensor ===
     writer.writerow(['=== DATA SENSOR MIKROKLIMAT ==='])
-    writer.writerow(['No', 'Timestamp', 'Suhu (°C)', 'Kelembapan (%RH)', 'Waktu Dekripsi (ms)', 'Status'])
+    writer.writerow(['No', 'Timestamp', 'Suhu (°C)', 'Kelembapan (%RH)',
+                      'Waktu Enkripsi (ms)', 'Waktu Dekripsi (ms)', 'Total Waktu (ms)',
+                      'Overhead (Bytes)', 'Status'])
     
     for i, row in enumerate(data_sensor, 1):
         writer.writerow([
@@ -211,7 +244,10 @@ def export_csv():
             row['timestamp'],
             row['suhu'],
             row['kelembapan'],
+            round(row['waktu_enkripsi_ms'], 4) if row.get('waktu_enkripsi_ms') else '',
             round(row['waktu_dekripsi_ms'], 4),
+            round(row['total_waktu_ms'], 4) if row.get('total_waktu_ms') else '',
+            row.get('overhead_bytes', ''),
             row['status']
         ])
     
