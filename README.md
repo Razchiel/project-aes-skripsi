@@ -1,4 +1,4 @@
-# 🔐 Implementasi AES-256-CBC dan HMAC-SHA256 untuk Pengamanan Data Sensor pada Sistem Monitoring Lingkungan Berbasis IoT
+# Implementasi AES-256-CBC dan HMAC-SHA256 untuk Pengamanan Data Sensor pada Sistem Monitoring Lingkungan Berbasis IoT
 
 **Tugas Akhir** — Program Studi Rekayasa Sistem Komputer, FMIPA, Universitas Tanjungpura Pontianak
 
